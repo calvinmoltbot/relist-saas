@@ -76,6 +76,12 @@ export function userScope(userId: string) {
         .where(and(eq(apiKeys.userId, userId), eq(apiKeys.id, id)))
         .returning(),
 
+    purgeApiKey: (id: string) =>
+      db
+        .delete(apiKeys)
+        .where(and(eq(apiKeys.userId, userId), eq(apiKeys.id, id)))
+        .returning({ id: apiKeys.id }),
+
     listExpenses: ({ from, to }: { from?: Date | null; to?: Date | null } = {}) => {
       const conds: SQL[] = [eq(expenses.userId, userId)];
       if (from) conds.push(gte(expenses.incurredAt, from));

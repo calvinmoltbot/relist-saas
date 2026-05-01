@@ -21,14 +21,10 @@ export default async function MarketingPage() {
             <UserButton />
           </>
         ) : (
-          <>
-            <SignInButton mode="modal">
-              <button className="rounded-md bg-black px-4 py-2 text-white">Sign in</button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="rounded-md border px-4 py-2">Create account</button>
-            </SignUpButton>
-          </>
+          <div className="flex gap-3 [&_button]:rounded-md [&_button]:px-4 [&_button]:py-2 [&_button]:cursor-pointer [&_button]:border [&_button]:border-gray-300 [&_button]:bg-white [&_button]:text-gray-900 [&_button:hover]:bg-gray-50">
+            <SignInButton mode="modal" />
+            <SignUpButton mode="modal" />
+          </div>
         )}
       </div>
     </main>

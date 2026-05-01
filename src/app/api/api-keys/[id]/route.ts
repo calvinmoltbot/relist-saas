@@ -18,9 +18,11 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const rows = await userScope(userId).revokeApiKey(id);
+  const hard = req.nextUrl.searchParams.get("hard") === "1";
+  const scope = userScope(userId);
+  const rows = hard ? await scope.purgeApiKey(id) : await scope.revokeApiKey(id);
   if (rows.length === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, hard });
 }

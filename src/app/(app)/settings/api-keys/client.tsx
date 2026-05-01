@@ -47,6 +47,12 @@ export function ApiKeysClient({ initialKeys }: { initialKeys: Key[] }) {
     if (res.ok) router.refresh();
   }
 
+  async function purge(id: string) {
+    if (!confirm("Permanently delete this revoked key? This cannot be undone.")) return;
+    const res = await fetch(`/api/api-keys/${id}?hard=1`, { method: "DELETE" });
+    if (res.ok) router.refresh();
+  }
+
   return (
     <div className="mt-6 space-y-8">
       <form onSubmit={create} className="flex items-end gap-3">
@@ -71,18 +77,18 @@ export function ApiKeysClient({ initialKeys }: { initialKeys: Key[] }) {
       </form>
 
       {justCreated && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
+        <div className="rounded-md border border-amber-400 bg-amber-50 p-4 text-amber-950">
           <p className="text-sm font-medium">
             Copy this token now — you won&apos;t see it again.
           </p>
-          <pre className="mt-2 overflow-x-auto rounded bg-white px-3 py-2 text-xs">
+          <pre className="mt-2 overflow-x-auto rounded border border-amber-200 bg-white px-3 py-2 text-xs text-gray-900">
             {justCreated.token}
           </pre>
           <button
             onClick={() => {
               navigator.clipboard.writeText(justCreated.token);
             }}
-            className="mt-2 text-sm underline"
+            className="mt-2 rounded-md border border-amber-300 bg-white px-3 py-1 text-sm text-amber-900 hover:bg-amber-100"
           >
             Copy
           </button>
@@ -106,7 +112,14 @@ export function ApiKeysClient({ initialKeys }: { initialKeys: Key[] }) {
                     {k.revokedAt && ` · revoked`}
                   </div>
                 </div>
-                {!k.revokedAt && (
+                {k.revokedAt ? (
+                  <button
+                    onClick={() => purge(k.id)}
+                    className="rounded-md border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                ) : (
                   <button
                     onClick={() => revoke(k.id)}
                     className="rounded-md border px-3 py-1 text-xs"

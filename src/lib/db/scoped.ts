@@ -1,0 +1,183 @@
+import { and, asc, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
+import { db } from "@/db/client";
+import {
+  priceData,
+  priceStats,
+  apiKeys,
+  expenses,
+  items,
+  transactions,
+} from "@/db/schema";
+
+type NewPriceData = typeof priceData.$inferInsert;
+type NewApiKey = typeof apiKeys.$inferInsert;
+type NewExpense = typeof expenses.$inferInsert;
+type NewItem = typeof items.$inferInsert;
+type NewTransaction = typeof transactions.$inferInsert;
+type ItemUpdate = Partial<typeof items.$inferInsert>;
+
+export type InventoryFilters = {
+  status?: string | null;
+  search?: string | null;
+  sort?: "date" | "price" | "brand" | null;
+  incompleteOnly?: boolean;
+};
+
+/**
+ * All user-facing DB access goes through here. Routes call userScope(userId)
+ * and must never use the bare `db` import.
+ */
+export function userScope(userId: string) {
+  return {
+    listPriceData: (limit = 100) =>
+      db
+        .select()
+        .from(priceData)
+        .where(eq(priceData.userId, userId))
+        .orderBy(desc(priceData.observedAt))
+        .limit(limit),
+
+    insertPriceData: (data: Omit<NewPriceData, "userId">) =>
+      db
+        .insert(priceData)
+        .values({ ...data, userId })
+        .onConflictDoNothing({
+          target: [priceData.userId, priceData.source, priceData.externalId],
+        })
+        .returning(),
+
+    listPriceStats: () =>
+      db.select().from(priceStats).where(eq(priceStats.userId, userId)),
+
+    listApiKeys: () =>
+      db
+        .select({
+          id: apiKeys.id,
+          name: apiKeys.name,
+          tokenPrefix: apiKeys.tokenPrefix,
+          createdAt: apiKeys.createdAt,
+          lastUsedAt: apiKeys.lastUsedAt,
+          revokedAt: apiKeys.revokedAt,
+        })
+        .from(apiKeys)
+        .where(eq(apiKeys.userId, userId))
+        .orderBy(desc(apiKeys.createdAt)),
+
+    insertApiKey: (data: Omit<NewApiKey, "userId">) =>
+      db
+        .insert(apiKeys)
+        .values({ ...data, userId })
+        .returning(),
+
+    revokeApiKey: (id: string) =>
+      db
+        .update(apiKeys)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(apiKeys.userId, userId), eq(apiKeys.id, id)))
+        .returning(),
+
+    listExpenses: ({ from, to }: { from?: Date | null; to?: Date | null } = {}) => {
+      const conds: SQL[] = [eq(expenses.userId, userId)];
+      if (from) conds.push(gte(expenses.incurredAt, from));
+      if (to) conds.push(lte(expenses.incurredAt, to));
+      return db
+        .select()
+        .from(expenses)
+        .where(and(...conds))
+        .orderBy(desc(expenses.incurredAt));
+    },
+
+    insertExpense: (data: Omit<NewExpense, "userId">) =>
+      db.insert(expenses).values({ ...data, userId }).returning(),
+
+    deleteExpense: (id: string) =>
+      db
+        .delete(expenses)
+        .where(and(eq(expenses.userId, userId), eq(expenses.id, id)))
+        .returning({ id: expenses.id }),
+
+    listItems: async ({ status, search, sort, incompleteOnly }: InventoryFilters = {}) => {
+      const conds: SQL[] = [eq(items.userId, userId)];
+      if (status) conds.push(eq(items.status, status));
+      if (search) {
+        const like = `%${search}%`;
+        const cond = or(
+          ilike(items.name, like),
+          ilike(items.brand, like),
+          ilike(items.category, like),
+        );
+        if (cond) conds.push(cond);
+      }
+      const orderBy =
+        sort === "price"
+          ? desc(items.listedPrice)
+          : sort === "brand"
+            ? asc(items.brand)
+            : desc(items.createdAt);
+
+      const rows = await db
+        .select()
+        .from(items)
+        .where(and(...conds))
+        .orderBy(orderBy);
+
+      if (!incompleteOnly) return rows;
+      return rows.filter(
+        (r) => !r.brand || !r.category || !r.size || !r.condition || !r.listedPrice,
+      );
+    },
+
+    getItem: async (id: string) => {
+      const [row] = await db
+        .select()
+        .from(items)
+        .where(and(eq(items.userId, userId), eq(items.id, id)))
+        .limit(1);
+      return row ?? null;
+    },
+
+    findItemByVintedUrl: async (url: string) => {
+      const [row] = await db
+        .select()
+        .from(items)
+        .where(and(eq(items.userId, userId), eq(items.vintedUrl, url)))
+        .limit(1);
+      return row ?? null;
+    },
+
+    findItemByName: async (name: string) => {
+      const [row] = await db
+        .select()
+        .from(items)
+        .where(and(eq(items.userId, userId), ilike(items.name, name.trim())))
+        .limit(1);
+      return row ?? null;
+    },
+
+    insertItem: (data: Omit<NewItem, "userId">) =>
+      db.insert(items).values({ ...data, userId }).returning(),
+
+    updateItem: (id: string, data: ItemUpdate) =>
+      db
+        .update(items)
+        .set({ ...data, updatedAt: new Date() })
+        .where(and(eq(items.userId, userId), eq(items.id, id)))
+        .returning(),
+
+    deleteItem: (id: string) =>
+      db
+        .delete(items)
+        .where(and(eq(items.userId, userId), eq(items.id, id)))
+        .returning({ id: items.id }),
+
+    insertTransaction: (data: Omit<NewTransaction, "userId">) =>
+      db.insert(transactions).values({ ...data, userId }).returning(),
+
+    listTransactionsForItem: (itemId: string) =>
+      db
+        .select()
+        .from(transactions)
+        .where(and(eq(transactions.userId, userId), eq(transactions.itemId, itemId)))
+        .orderBy(desc(transactions.createdAt)),
+  };
+}

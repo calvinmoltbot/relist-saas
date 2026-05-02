@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { computeHealth } from "@/lib/analytics/health";
+import { userScope } from "@/lib/db/scoped";
+import { FirstRunNudge } from "@/components/FirstRunNudge";
 
 const gbp = (n: number) => `£${n.toFixed(0)}`;
 
@@ -29,8 +31,12 @@ export default async function HealthPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const h = await computeHealth(userId);
+  const [h, itemCount] = await Promise.all([
+    computeHealth(userId),
+    userScope(userId).countItems(),
+  ]);
   const totalAging = Object.values(h.aging.buckets).reduce((a, b) => a + b, 0);
+  const isFirstRun = itemCount === 0;
 
   return (
     <div className="space-y-8">
@@ -40,6 +46,13 @@ export default async function HealthPage() {
           How fresh, complete and well-paced your listings are.
         </p>
       </header>
+
+      {isFirstRun && (
+        <FirstRunNudge
+          heading="Nothing to score yet"
+          body="Health metrics need active listings. Add an item and check back."
+        />
+      )}
 
       {/* Headline tiles */}
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">

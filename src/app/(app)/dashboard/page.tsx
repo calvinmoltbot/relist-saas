@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { computeProfit } from "@/lib/analytics/profit";
+import { userScope } from "@/lib/db/scoped";
+import { FirstRunNudge } from "@/components/FirstRunNudge";
 
 const gbp = (n: number) => `£${n.toFixed(2)}`;
 
@@ -13,8 +15,12 @@ export default async function DashboardPage() {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  const month = await computeProfit(userId, { from, to });
-  const allTime = await computeProfit(userId, { from: null, to: null });
+  const [month, allTime, itemCount] = await Promise.all([
+    computeProfit(userId, { from, to }),
+    computeProfit(userId, { from: null, to: null }),
+    userScope(userId).countItems(),
+  ]);
+  const isFirstRun = itemCount === 0;
 
   const tiles: Array<{ label: string; value: string; sub?: string }> = [
     { label: "Revenue this month", value: gbp(month.summary.revenue), sub: `${month.summary.itemsSold} sold` },
@@ -44,6 +50,8 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </header>
+
+      {isFirstRun && <FirstRunNudge />}
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {tiles.map((t) => (

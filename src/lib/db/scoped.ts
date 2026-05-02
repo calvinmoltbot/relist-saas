@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   priceData,
@@ -131,6 +131,14 @@ export function userScope(userId: string) {
       return rows.filter(
         (r) => !r.brand || !r.category || !r.size || !r.condition || !r.listedPrice,
       );
+    },
+
+    countItems: async () => {
+      const [row] = await db
+        .select({ n: count() })
+        .from(items)
+        .where(eq(items.userId, userId));
+      return Number(row?.n ?? 0);
     },
 
     getItem: async (id: string) => {

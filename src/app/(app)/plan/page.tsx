@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { buildDailyPlan, type DailyTask, type TaskType } from "@/lib/analytics/daily-plan";
+import { userScope } from "@/lib/db/scoped";
+import { FirstRunNudge } from "@/components/FirstRunNudge";
 
 const TYPE_META: Record<
   TaskType,
@@ -35,7 +37,11 @@ export default async function PlanPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const plan = await buildDailyPlan(userId);
+  const [plan, itemCount] = await Promise.all([
+    buildDailyPlan(userId),
+    userScope(userId).countItems(),
+  ]);
+  const isFirstRun = itemCount === 0;
   const grouped: Record<TaskType, DailyTask[]> = {
     ship: [],
     update: [],
@@ -75,7 +81,13 @@ export default async function PlanPage() {
         ))}
       </section>
 
-      {plan.tasks.length === 0 ? (
+      {isFirstRun ? (
+        <FirstRunNudge
+          variant="panel"
+          heading="No tasks yet"
+          body="Once you add items, the daily plan will surface what to ship, photo, reprice or update first."
+        />
+      ) : plan.tasks.length === 0 ? (
         <section className="rounded-md border border-dashed bg-gray-50 p-10 text-center">
           <p className="text-base font-medium">Inbox zero</p>
           <p className="mt-1 text-sm text-gray-600">

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { computeProfit } from "@/lib/analytics/profit";
 import { resolveDateRange } from "@/lib/date-range";
+import { userScope } from "@/lib/db/scoped";
+import { FirstRunNudge } from "@/components/FirstRunNudge";
 
 const PRESETS = [
   { value: "this_month", label: "This month" },
@@ -25,7 +27,11 @@ export default async function ProfitPage({
 
   const { preset = "this_month" } = await searchParams;
   const range = resolveDateRange(preset || null, null, null);
-  const r = await computeProfit(userId, range);
+  const [r, itemCount] = await Promise.all([
+    computeProfit(userId, range),
+    userScope(userId).countItems(),
+  ]);
+  const isFirstRun = itemCount === 0;
 
   return (
     <div className="space-y-8">
@@ -46,6 +52,13 @@ export default async function ProfitPage({
           <button className="rounded-md border px-3 py-1.5">Apply</button>
         </form>
       </header>
+
+      {isFirstRun && (
+        <FirstRunNudge
+          heading="No profit data yet"
+          body="Add items and mark them sold to see revenue, margin and net profit broken down."
+        />
+      )}
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Tile label="Revenue" value={gbp(r.summary.revenue)} />

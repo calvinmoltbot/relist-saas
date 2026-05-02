@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { userScope } from "@/lib/db/scoped";
+import { FirstRunNudge } from "@/components/FirstRunNudge";
 
 const STATUSES = ["all", "sourced", "listed", "sold", "shipped"] as const;
 
@@ -21,12 +22,19 @@ export default async function InventoryPage({
   const sp = await searchParams;
   const status = sp.status === "all" || !sp.status ? null : sp.status;
   const sort = sp.sort === "price" || sp.sort === "brand" ? sp.sort : "date";
-  const rows = await userScope(userId).listItems({
-    status,
-    search: sp.search ?? null,
-    sort,
-    incompleteOnly: sp.incomplete === "1",
-  });
+  const scope = userScope(userId);
+  const [rows, totalCount] = await Promise.all([
+    scope.listItems({
+      status,
+      search: sp.search ?? null,
+      sort,
+      incompleteOnly: sp.incomplete === "1",
+    }),
+    scope.countItems(),
+  ]);
+  const filtersApplied =
+    !!status || !!sp.search?.trim() || sp.incomplete === "1";
+  const isFirstRun = totalCount === 0;
 
   return (
     <div className="space-y-6">
@@ -84,9 +92,15 @@ export default async function InventoryPage({
       </form>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed p-8 text-center text-sm text-gray-500">
-          No items match.
-        </p>
+        isFirstRun ? (
+          <FirstRunNudge variant="panel" />
+        ) : (
+          <p className="rounded-md border border-dashed p-8 text-center text-sm text-gray-500">
+            {filtersApplied
+              ? "No items match these filters."
+              : "No items in this view."}
+          </p>
+        )
       ) : (
         <table className="w-full border-collapse text-sm">
           <thead>

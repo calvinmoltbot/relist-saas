@@ -105,6 +105,7 @@ export default async function InventoryPage({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b text-left text-xs uppercase text-gray-500">
+              <th className="w-12 py-2 pr-2"></th>
               <th className="py-2 pr-4">Name</th>
               <th className="py-2 pr-4">Brand</th>
               <th className="py-2 pr-4">Size</th>
@@ -117,6 +118,30 @@ export default async function InventoryPage({
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-b hover:bg-gray-50">
+                <td className="py-2 pr-2">
+                  <Link
+                    href={`/inventory/${r.id}`}
+                    aria-label={`View ${r.name}`}
+                    className="block"
+                  >
+                    {r.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/inventory/thumb/${r.id}`}
+                        alt=""
+                        loading="lazy"
+                        className="h-10 w-10 rounded object-cover bg-gray-100"
+                      />
+                    ) : (
+                      <div
+                        aria-hidden
+                        className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400"
+                      >
+                        no img
+                      </div>
+                    )}
+                  </Link>
+                </td>
                 <td className="py-2 pr-4">
                   <Link href={`/inventory/${r.id}`} className="underline">
                     {r.name}

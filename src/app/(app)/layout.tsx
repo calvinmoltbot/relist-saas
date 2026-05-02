@@ -18,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/describe">Describe</Link>
           <Link href="/expenses">Expenses</Link>
           <Link href="/settings/api-keys">API keys</Link>
+          <Link href="/settings/backup">Backup</Link>
         </nav>
         <UserButton />
       </header>

@@ -1,9 +1,7 @@
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items } from "@/db/schema";
-
-// Constants — restored from a user_settings table later.
-const STALE_LISTING_DAYS = 2;
+import { getTargets } from "@/lib/settings";
 
 export type TaskType = "ship" | "update" | "reprice" | "photo";
 
@@ -29,7 +27,8 @@ const gbp0 = (s: string | null) => (s ? `£${parseFloat(s).toFixed(0)}` : "");
 
 export async function buildDailyPlan(userId: string): Promise<DailyPlan> {
   const now = new Date();
-  const staleCutoff = new Date(now.getTime() - STALE_LISTING_DAYS * 86_400_000);
+  const { staleListingDays } = await getTargets(userId);
+  const staleCutoff = new Date(now.getTime() - staleListingDays * 86_400_000);
 
   const [soldItems, incompleteItems, staleItems, noPhotoItems] = await Promise.all([
     db

@@ -7,6 +7,7 @@ import {
   expenses,
   items,
   transactions,
+  userSettings,
 } from "@/db/schema";
 
 type NewPriceData = typeof priceData.$inferInsert;
@@ -209,5 +210,21 @@ export function userScope(userId: string) {
         .from(transactions)
         .where(and(eq(transactions.userId, userId), eq(transactions.itemId, itemId)))
         .orderBy(desc(transactions.createdAt)),
+
+    listUserSettings: () =>
+      db
+        .select({ key: userSettings.key, value: userSettings.value })
+        .from(userSettings)
+        .where(eq(userSettings.userId, userId)),
+
+    setUserSetting: (key: string, value: string) =>
+      db
+        .insert(userSettings)
+        .values({ userId, key, value })
+        .onConflictDoUpdate({
+          target: [userSettings.userId, userSettings.key],
+          set: { value, updatedAt: new Date() },
+        })
+        .returning(),
   };
 }

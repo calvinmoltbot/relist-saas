@@ -187,3 +187,21 @@ export const apiKeys = pgTable(
   },
   (t) => [index("api_keys_user_idx").on(t.userId)],
 );
+
+export const userSettings = pgTable(
+  "user_settings",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: text("user_id").notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("user_settings_user_key_idx").on(t.userId, t.key),
+  ],
+);

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { userScope } from "@/lib/db/scoped";
 import { ItemActions } from "./actions";
+import { ItemPhotos } from "./photos";
 
 function gbp(n: string | null) {
   return n == null ? "—" : `£${parseFloat(n).toFixed(2)}`;
@@ -52,6 +53,8 @@ export default async function ItemDetail({
           value={item.soldAt ? new Date(item.soldAt).toLocaleDateString() : "—"}
         />
       </dl>
+
+      <ItemPhotos itemId={item.id} initialPhotos={item.photoUrls ?? []} />
 
       {item.description && (
         <p className="whitespace-pre-wrap rounded-md border bg-gray-50 p-4 text-sm">

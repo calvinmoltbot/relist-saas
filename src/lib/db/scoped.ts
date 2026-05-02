@@ -176,6 +176,22 @@ export function userScope(userId: string) {
         .where(and(eq(items.userId, userId), eq(items.id, id)))
         .returning({ id: items.id }),
 
+    setItemPhotos: (id: string, photoUrls: string[], thumbnailUrl: string | null) =>
+      db
+        .update(items)
+        .set({ photoUrls, thumbnailUrl, updatedAt: new Date() })
+        .where(and(eq(items.userId, userId), eq(items.id, id)))
+        .returning(),
+
+    getItemThumbnail: async (id: string) => {
+      const [row] = await db
+        .select({ thumbnailUrl: items.thumbnailUrl })
+        .from(items)
+        .where(and(eq(items.userId, userId), eq(items.id, id)))
+        .limit(1);
+      return row?.thumbnailUrl ?? null;
+    },
+
     insertTransaction: (data: Omit<NewTransaction, "userId">) =>
       db.insert(transactions).values({ ...data, userId }).returning(),
 

@@ -3,13 +3,9 @@ import { db } from "@/db/client";
 import { items } from "@/db/schema";
 import { computeCadence, type CadenceResult } from "@/lib/inventory/cadence";
 import { scoreItem, summarise, type CompletenessSummary } from "@/lib/inventory/completeness";
+import { getTargets } from "@/lib/settings";
 
 const num = (s: string | null | undefined) => (s ? parseFloat(s) : 0);
-
-// Targets — until user_settings table lands these are constants. The legacy
-// app loaded them from a key/value table; we'll restore that with daily-plan.
-const WEEKLY_LISTINGS_TARGET = 10;
-const REFRESH_SUGGESTED_DAYS = 7;
 
 export type HealthReport = Awaited<ReturnType<typeof computeHealth>>;
 
@@ -17,6 +13,7 @@ export async function computeHealth(userId: string) {
   const now = new Date();
   const fourWeeksAgo = new Date(now);
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 35);
+  const { weeklyListingsTarget, refreshSuggestedDays } = await getTargets(userId);
 
   // Pull the active inventory (listed + sourced) plus recent listed timestamps
   // for cadence. One round-trip via union of conditions keeps this cheap.
@@ -40,7 +37,7 @@ export async function computeHealth(userId: string) {
     .filter((d): d is Date => d != null && d.getTime() >= fourWeeksAgo.getTime());
   const cadence: CadenceResult = computeCadence(
     recentListedAts,
-    WEEKLY_LISTINGS_TARGET,
+    weeklyListingsTarget,
     now,
   );
 
@@ -92,7 +89,7 @@ export async function computeHealth(userId: string) {
     buckets[bucket] += 1;
     bucketValues[bucket] += value;
     if (days >= 15) stockAtRisk += value;
-    if (days >= REFRESH_SUGGESTED_DAYS && r.status === "listed") {
+    if (days >= refreshSuggestedDays && r.status === "listed") {
       deadStock.push({
         id: r.id,
         name: r.name,

@@ -100,6 +100,7 @@ export const items = pgTable(
     soldAt: timestamp("sold_at", { withTimezone: true }),
     buyerPaidShipping: boolean("buyer_paid_shipping").default(true),
     shippedAt: timestamp("shipped_at", { withTimezone: true }),
+    lastEditedAt: timestamp("last_edited_at", { withTimezone: true }),
     relistCount: integer("relist_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

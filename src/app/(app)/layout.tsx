@@ -10,6 +10,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/dashboard">Dashboard</Link>
           <Link href="/inventory">Inventory</Link>
           <Link href="/profit">Profit</Link>
+          <Link href="/health">Health</Link>
           <Link href="/market">Market</Link>
           <Link href="/expenses">Expenses</Link>
           <Link href="/settings/api-keys">API keys</Link>

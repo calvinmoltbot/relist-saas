@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { SignInButton, UserButton } from "@clerk/nextjs";
 
 export default async function MarketingPage() {
   const { userId } = await auth();
@@ -21,9 +21,13 @@ export default async function MarketingPage() {
             <UserButton />
           </>
         ) : (
-          <div className="flex gap-3 [&_button]:rounded-md [&_button]:px-4 [&_button]:py-2 [&_button]:cursor-pointer [&_button]:border [&_button]:border-gray-300 [&_button]:bg-white [&_button]:text-gray-900 [&_button:hover]:bg-gray-50">
-            <SignInButton mode="modal" />
-            <SignUpButton mode="modal" />
+          <div className="space-y-3">
+            <div className="flex gap-3 [&_button]:rounded-md [&_button]:px-4 [&_button]:py-2 [&_button]:cursor-pointer [&_button]:border [&_button]:border-gray-300 [&_button]:bg-white [&_button]:text-gray-900 [&_button:hover]:bg-gray-50">
+              <SignInButton mode="modal" />
+            </div>
+            <p className="text-sm text-gray-500">
+              Access is invite-only. Ask Calvin for an invite link.
+            </p>
           </div>
         )}
       </div>

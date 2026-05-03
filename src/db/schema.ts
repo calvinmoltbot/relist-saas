@@ -102,6 +102,7 @@ export const items = pgTable(
     shippedAt: timestamp("shipped_at", { withTimezone: true }),
     lastEditedAt: timestamp("last_edited_at", { withTimezone: true }),
     relistCount: integer("relist_count").notNull().default(0),
+    isSample: boolean("is_sample").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -111,6 +112,7 @@ export const items = pgTable(
   },
   (t) => [
     index("items_user_status_idx").on(t.userId, t.status),
+    index("items_user_sample_idx").on(t.userId, t.isSample),
     index("items_user_brand_idx").on(t.userId, t.brand),
     index("items_user_category_idx").on(t.userId, t.category),
     index("items_user_created_idx").on(t.userId, t.createdAt),
@@ -137,6 +139,7 @@ export const transactions = pgTable(
       .default("0"),
     profit: numeric("profit", { precision: 10, scale: 2 }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    isSample: boolean("is_sample").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -144,6 +147,7 @@ export const transactions = pgTable(
   (t) => [
     index("transactions_user_item_idx").on(t.userId, t.itemId),
     index("transactions_user_completed_idx").on(t.userId, t.completedAt),
+    index("transactions_user_sample_idx").on(t.userId, t.isSample),
   ],
 );
 
@@ -159,6 +163,7 @@ export const expenses = pgTable(
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
     itemId: text("item_id"), // FK added when items table lands; same-user enforced via userScope
     incurredAt: timestamp("incurred_at", { withTimezone: true }).notNull(),
+    isSample: boolean("is_sample").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -166,6 +171,7 @@ export const expenses = pgTable(
   (t) => [
     index("expenses_user_incurred_idx").on(t.userId, t.incurredAt),
     index("expenses_user_category_idx").on(t.userId, t.category),
+    index("expenses_user_sample_idx").on(t.userId, t.isSample),
   ],
 );
 

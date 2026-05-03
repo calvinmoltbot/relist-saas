@@ -1,15 +1,18 @@
 import Link from "next/link";
+import { loadSampleDataAction } from "@/app/(app)/dashboard/sample-data-actions";
 
 type Variant = "banner" | "panel";
 
 export function FirstRunNudge({
   variant = "banner",
   heading = "Welcome to Relist",
-  body = "You don't have any items yet. Add one manually or set up the Chrome extension to send listings straight from Vinted.",
+  body = "You don't have any items yet. Add one manually, set up the Chrome extension to send listings straight from Vinted, or load sample data to see how every page looks first.",
+  showSampleData = true,
 }: {
   variant?: Variant;
   heading?: string;
   body?: string;
+  showSampleData?: boolean;
 }) {
   const wrap =
     variant === "banner"
@@ -37,6 +40,16 @@ export function FirstRunNudge({
         >
           Set up the extension
         </Link>
+        {showSampleData && (
+          <form action={loadSampleDataAction}>
+            <button
+              type="submit"
+              className="rounded-md border px-3 py-1.5"
+            >
+              Load sample data
+            </button>
+          </form>
+        )}
       </div>
     </section>
   );

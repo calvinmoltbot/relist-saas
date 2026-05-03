@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { computeProfit } from "@/lib/analytics/profit";
 import { userScope } from "@/lib/db/scoped";
 import { FirstRunNudge } from "@/components/FirstRunNudge";
+import { hasSampleData } from "@/lib/sample-data";
+import { clearSampleDataAction } from "./sample-data-actions";
 
 const gbp = (n: number) => `£${n.toFixed(2)}`;
 
@@ -15,10 +17,11 @@ export default async function DashboardPage() {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  const [month, allTime, itemCount] = await Promise.all([
+  const [month, allTime, itemCount, sampleLoaded] = await Promise.all([
     computeProfit(userId, { from, to }),
     computeProfit(userId, { from: null, to: null }),
     userScope(userId).countItems(),
+    hasSampleData(userId),
   ]);
   const isFirstRun = itemCount === 0;
 
@@ -52,6 +55,22 @@ export default async function DashboardPage() {
       </header>
 
       {isFirstRun && <FirstRunNudge />}
+
+      {sampleLoaded && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <span className="text-amber-900">
+            Sample data is loaded in your account. Clear it once you&apos;re ready to work with real items only.
+          </span>
+          <form action={clearSampleDataAction}>
+            <button
+              type="submit"
+              className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-amber-900"
+            >
+              Clear sample data
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {tiles.map((t) => (

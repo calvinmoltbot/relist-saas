@@ -1,37 +1,158 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------
+   Relist design tokens — see src/components/ui/README.md
+   --------------------------------------------------------------- */
+
 :root {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
+
+  /* Surfaces */
+  --surface-canvas: #faf7f2;       /* warm cream — page background */
+  --surface-card: #ffffff;         /* card / tile surface */
+  --surface-muted: #f5f2ec;        /* tinted muted surface */
+  --surface-inset: #f1ede5;        /* inputs, sub-cards */
+
+  /* Foreground */
+  --text-primary: #111827;         /* slate-900 */
+  --text-secondary: #4b5563;       /* slate-600 */
+  --text-muted: #6b7280;           /* slate-500 */
+  --text-inverse: #ffffff;
+
+  /* Borders */
+  --border-subtle: #e7e2d8;
+  --border-default: #d6cfc1;
+  --border-strong: #b8af9a;
+
+  /* Brand / accents */
+  --brand: #0f766e;                /* teal 700 — primary */
+  --brand-hover: #115e59;
+  --brand-soft: #ccfbf1;
+  --brand-soft-fg: #134e4a;
+
+  --accent-amber: #f59e0b;
+  --accent-amber-soft: #fef3c7;
+  --accent-amber-soft-fg: #78350f;
+
+  --accent-violet: #7c3aed;
+  --accent-violet-soft: #ede9fe;
+  --accent-violet-soft-fg: #4c1d95;
+
+  --accent-rose: #f43f5e;
+  --accent-rose-soft: #ffe4e6;
+  --accent-rose-soft-fg: #9f1239;
+
+  --accent-emerald: #059669;
+  --accent-emerald-soft: #d1fae5;
+  --accent-emerald-soft-fg: #064e3b;
+
+  --accent-blue: #2563eb;
+  --accent-blue-soft: #dbeafe;
+  --accent-blue-soft-fg: #1e3a8a;
+
+  --accent-slate: #475569;
+  --accent-slate-soft: #e2e8f0;
+  --accent-slate-soft-fg: #1e293b;
+
+  /* Money semantic */
+  --money-positive: var(--accent-emerald);
+  --money-negative: var(--accent-rose);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Elevation */
+  --elev-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --elev-2: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --elev-3: 0 12px 32px rgba(15, 23, 42, 0.10), 0 4px 8px rgba(15, 23, 42, 0.04);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--surface-canvas);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-card);
+  --color-muted: var(--surface-muted);
+  --color-inset: var(--surface-inset);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-fg: var(--brand-soft-fg);
+
+  --color-amber: var(--accent-amber);
+  --color-amber-soft: var(--accent-amber-soft);
+  --color-amber-soft-fg: var(--accent-amber-soft-fg);
+
+  --color-violet: var(--accent-violet);
+  --color-violet-soft: var(--accent-violet-soft);
+  --color-violet-soft-fg: var(--accent-violet-soft-fg);
+
+  --color-rose: var(--accent-rose);
+  --color-rose-soft: var(--accent-rose-soft);
+  --color-rose-soft-fg: var(--accent-rose-soft-fg);
+
+  --color-emerald: var(--accent-emerald);
+  --color-emerald-soft: var(--accent-emerald-soft);
+  --color-emerald-soft-fg: var(--accent-emerald-soft-fg);
+
+  --color-blue-pill: var(--accent-blue);
+  --color-blue-soft: var(--accent-blue-soft);
+  --color-blue-soft-fg: var(--accent-blue-soft-fg);
+
+  --color-slate-pill: var(--accent-slate);
+  --color-slate-soft: var(--accent-slate-soft);
+  --color-slate-soft-fg: var(--accent-slate-soft-fg);
+
+  --color-money-positive: var(--money-positive);
+  --color-money-negative: var(--money-negative);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
 }
 
-/* Tailwind v4: `border` defaults to currentColor. Keep skeleton readable
-   by routing bare `border` and form fields to neutral gray. */
 @layer base {
   *, ::before, ::after {
-    border-color: var(--color-gray-300, #d1d5db);
+    border-color: var(--border-subtle);
   }
+
+  html, body {
+    background: var(--surface-canvas);
+    color: var(--text-primary);
+  }
+
+  body {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
   input, select, textarea {
-    background: #ffffff;
-    color: #171717;
+    background: var(--surface-card);
+    color: var(--text-primary);
+    border-color: var(--border-default);
   }
+
+  input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+  }
+
   button {
     cursor: pointer;
-    background: #ffffff;
-    color: #171717;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  .font-display {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-optical-sizing: auto;
+  }
 }

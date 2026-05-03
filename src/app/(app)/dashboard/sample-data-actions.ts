@@ -6,7 +6,6 @@ import { seedSampleData, clearSampleData } from "@/lib/sample-data";
 
 function revalidateAll() {
   for (const p of [
-    "/settings/sample-data",
     "/dashboard",
     "/inventory",
     "/profit",

@@ -8,6 +8,13 @@ import {
   type ItemStat,
 } from "@/lib/analytics/bestsellers";
 import { resolveDateRange } from "@/lib/date-range";
+import {
+  Card,
+  CardHeader,
+  PageHeader,
+  SegmentedControl,
+  Tile,
+} from "@/components/ui";
 
 const PRESETS = [
   { value: "this_month", label: "This month" },
@@ -54,6 +61,7 @@ function formatDays(days: number): string {
 }
 
 const gbp = (n: number) => `£${n.toFixed(2)}`;
+const gbp0 = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
 const pct = (n: number) => `${Math.round(n)}%`;
 
 type SortKey = "fastest" | "profit" | "margin";
@@ -69,6 +77,12 @@ function sortGroups(groups: GroupStat[], sort: SortKey): GroupStat[] {
   if (sort === "fastest") return copy.sort((a, b) => a.medianDaysToSell - b.medianDaysToSell);
   if (sort === "profit") return copy.sort((a, b) => b.medianProfit - a.medianProfit);
   return copy.sort((a, b) => b.medianMarginPct - a.medianMarginPct);
+}
+
+function buildHref(params: { preset?: string; dim: Dimension; sort: SortKey }): string {
+  const sp = new URLSearchParams({ dim: params.dim, sort: params.sort });
+  if (params.preset) sp.set("preset", params.preset);
+  return `/bestsellers?${sp.toString()}`;
 }
 
 export default async function BestsellersPage({
@@ -94,173 +108,168 @@ export default async function BestsellersPage({
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Best sellers</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            What is flying out the door — time-to-sell grouped by product attributes.
-          </p>
-        </div>
-        <form className="flex gap-2 text-sm">
-          <input type="hidden" name="dim" value={dimension} />
-          <input type="hidden" name="sort" value={sortKey} />
-          <select
-            name="preset"
-            defaultValue={preset}
-            className="rounded-md border px-2 py-1.5"
-          >
-            {PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          <button className="rounded-md border px-3 py-1.5">Apply</button>
-        </form>
-      </header>
+      <PageHeader
+        title="Best sellers"
+        subtitle="What's flying out the door — time-to-sell grouped by product attributes."
+        actions={
+          <form className="flex items-center gap-2 text-sm">
+            <input type="hidden" name="dim" value={dimension} />
+            <input type="hidden" name="sort" value={sortKey} />
+            <select
+              name="preset"
+              defaultValue={preset}
+              className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm"
+              aria-label="Date range preset"
+            >
+              {PRESETS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+            >
+              Apply
+            </button>
+          </form>
+        }
+      />
 
       {/* Overall tiles */}
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Tile label="Sold items analysed" value={data.overall.totalSold.toString()} />
         <Tile
-          label="Median days to sell"
-          value={data.overall.totalSold ? formatDays(data.overall.medianDaysToSell) : "—"}
+          tone="slate"
+          icon={<span aria-hidden>#</span>}
+          label="Sold items analysed"
+          value={data.overall.totalSold.toString()}
         />
         <Tile
+          tone="brand"
+          icon={<span aria-hidden>⏱</span>}
+          label="Median days to sell"
+          value={data.overall.totalSold ? formatDays(data.overall.medianDaysToSell) : "—"}
+          sub={
+            data.overall.totalSold
+              ? `Fastest ${formatDays(data.overall.fastestDays)}`
+              : undefined
+          }
+        />
+        <Tile
+          tone="emerald"
+          icon={<span aria-hidden>£</span>}
           label="Median profit"
           value={data.overall.totalSold ? gbp(data.overall.medianProfit) : "—"}
         />
         <Tile
+          tone="violet"
+          icon={<span aria-hidden>%</span>}
           label="Median margin"
           value={data.overall.totalSold ? pct(data.overall.medianMarginPct) : "—"}
+          sub={
+            data.overall.totalSold
+              ? `${gbp0(data.overall.totalRevenue)} revenue`
+              : undefined
+          }
         />
       </section>
 
       {!hasEnough ? (
-        <section className="rounded-md border border-dashed bg-gray-50 p-10 text-center">
-          <p className="text-base font-medium">Not enough sales yet</p>
-          <p className="mt-1 text-sm text-gray-600">
-            Best sellers needs at least {data.minGroupSize} sold items with a
-            listed date before it can compare groups. Keep going — it will fill
-            up fast.
-          </p>
-        </section>
+        <Card>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <p className="font-display text-xl font-semibold text-[var(--text-primary)]">
+              Not enough sales yet
+            </p>
+            <p className="mt-2 max-w-md text-sm text-[var(--text-secondary)]">
+              Best sellers needs at least {data.minGroupSize} sold items with a
+              listed date before it can compare groups. Keep going — it will fill
+              up fast.
+            </p>
+          </div>
+        </Card>
       ) : (
         <>
           {/* Group breakdown */}
-          <section className="rounded-md border p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-sm font-medium">Group breakdown</h2>
-                <p className="text-xs text-gray-500">
-                  Groups with fewer than {data.minGroupSize} sales are hidden so
-                  one lucky sale does not skew the ranking.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <DimSwitch active={dimension} preset={preset} sort={sortKey} />
-                <SortSwitch active={sortKey} preset={preset} dim={dimension} />
-              </div>
+          <Card>
+            <CardHeader
+              title="Group breakdown"
+              description={`Groups with fewer than ${data.minGroupSize} sales are hidden so one lucky sale doesn't skew the ranking.`}
+            />
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <SegmentedControl
+                label="Dimension"
+                options={DIMENSIONS}
+                active={dimension}
+                tone="brand"
+                hrefFor={(v) => buildHref({ preset, dim: v, sort: sortKey })}
+              />
+              <SegmentedControl
+                label="Sort"
+                options={SORTS}
+                active={sortKey}
+                tone="emerald"
+                hrefFor={(v) => buildHref({ preset, dim: dimension, sort: v })}
+              />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-5">
               <GroupTable dimension={dimension} groups={groups} />
             </div>
-          </section>
+          </Card>
 
           {/* Hall of fame */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <HallOfFame
-              title="Fastest to sell"
-              items={data.topFastest}
-              valueLabel="days"
-              format={(i) => formatDays(i.daysToSell)}
-            />
-            <HallOfFame
-              title="Highest profit"
-              items={data.topProfit}
-              valueLabel="profit"
-              format={(i) => gbp(i.netProfit)}
-            />
-          </div>
+          <section className="space-y-3">
+            <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Hall of fame
+            </h2>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <HallOfFame
+                title="Fastest to sell"
+                accent="brand"
+                items={data.topFastest}
+                valueLabel="days"
+                format={(i) => formatDays(i.daysToSell)}
+              />
+              <HallOfFame
+                title="Highest profit"
+                accent="emerald"
+                items={data.topProfit}
+                valueLabel="profit"
+                format={(i) => gbp(i.netProfit)}
+              />
+            </div>
+          </section>
         </>
       )}
     </div>
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border p-4">
-      <div className="text-xs uppercase text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-    </div>
-  );
+/* -------------------------------------------------------------------- */
+/* Group breakdown table                                                 */
+/* -------------------------------------------------------------------- */
+
+function marginBand(p: number): "good" | "watch" | "bad" {
+  if (p >= 65) return "good";
+  if (p >= 40) return "watch";
+  return "bad";
 }
 
-function DimSwitch({
-  active,
-  preset,
-  sort,
-}: {
-  active: Dimension;
-  preset: string;
-  sort: SortKey;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1 rounded border p-0.5">
-      {DIMENSIONS.map((d) => {
-        const params = new URLSearchParams({ dim: d.value, sort });
-        if (preset) params.set("preset", preset);
-        const isActive = d.value === active;
-        return (
-          <Link
-            key={d.value}
-            href={`/bestsellers?${params.toString()}`}
-            className={`rounded px-2 py-1 ${
-              isActive ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            {d.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-function SortSwitch({
-  active,
-  preset,
-  dim,
-}: {
-  active: SortKey;
-  preset: string;
-  dim: Dimension;
-}) {
-  return (
-    <div className="flex gap-1 rounded border p-0.5">
-      {SORTS.map((s) => {
-        const params = new URLSearchParams({ dim, sort: s.value });
-        if (preset) params.set("preset", preset);
-        const isActive = s.value === active;
-        return (
-          <Link
-            key={s.value}
-            href={`/bestsellers?${params.toString()}`}
-            className={`rounded px-2 py-1 ${
-              isActive
-                ? "bg-emerald-100 text-emerald-800"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            {s.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
+const MARGIN_TONE: Record<"good" | "watch" | "bad", { bar: string; pill: string }> = {
+  good: {
+    bar: "bg-[var(--accent-emerald)]",
+    pill: "bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald-soft-fg)]",
+  },
+  watch: {
+    bar: "bg-[var(--accent-amber)]",
+    pill: "bg-[var(--accent-amber-soft)] text-[var(--accent-amber-soft-fg)]",
+  },
+  bad: {
+    bar: "bg-[var(--accent-rose)]",
+    pill: "bg-[var(--accent-rose-soft)] text-[var(--accent-rose-soft-fg)]",
+  },
+};
 
 function GroupTable({
   dimension,
@@ -271,7 +280,7 @@ function GroupTable({
 }) {
   if (groups.length === 0) {
     return (
-      <div className="rounded-md border border-dashed p-6 text-center text-sm text-gray-500">
+      <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border-default)] bg-[var(--surface-muted)] p-8 text-center text-sm text-[var(--text-muted)]">
         Not enough sales grouped by this attribute yet.
       </div>
     );
@@ -281,100 +290,161 @@ function GroupTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-xs uppercase text-gray-500">
+          <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
             <th className="py-2 pr-3 font-medium">Group</th>
             <th className="py-2 pr-3 text-right font-medium">Sales</th>
             <th className="py-2 pr-3 text-right font-medium">Median days</th>
             <th className="py-2 pr-3 text-right font-medium">Range</th>
             <th className="py-2 pr-3 text-right font-medium">Median profit</th>
-            <th className="py-2 pr-3 text-right font-medium">Margin</th>
+            <th className="py-2 pr-3 font-medium">Margin</th>
             <th className="py-2 pr-3 text-right font-medium">Revenue</th>
           </tr>
         </thead>
         <tbody>
-          {groups.map((g) => (
-            <tr key={g.key} className="border-b">
-              <td className="py-2 pr-3 font-medium">{prettifyKey(dimension, g.key)}</td>
-              <td className="py-2 pr-3 text-right">{g.count}</td>
-              <td className="py-2 pr-3 text-right text-emerald-700">
-                {formatDays(g.medianDaysToSell)}
-              </td>
-              <td className="py-2 pr-3 text-right text-xs text-gray-500">
-                {g.fastestDays}–{g.slowestDays}d
-              </td>
-              <td className="py-2 pr-3 text-right">{gbp(g.medianProfit)}</td>
-              <td className="py-2 pr-3 text-right">
-                <MarginBadge pct={g.medianMarginPct} />
-              </td>
-              <td className="py-2 pr-3 text-right text-gray-600">
-                {gbp(g.totalRevenue)}
-              </td>
-            </tr>
-          ))}
+          {groups.map((g) => {
+            const band = marginBand(g.medianMarginPct);
+            const tone = MARGIN_TONE[band];
+            const barWidth = Math.max(4, Math.min(100, g.medianMarginPct));
+            return (
+              <tr
+                key={g.key}
+                className="border-b border-[var(--border-subtle)] last:border-b-0 transition-colors hover:bg-[var(--surface-muted)]"
+              >
+                <td className="py-3 pr-3 font-medium text-[var(--text-primary)]">
+                  {prettifyKey(dimension, g.key)}
+                </td>
+                <td className="py-3 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
+                  {g.count}
+                </td>
+                <td className="py-3 pr-3 text-right font-medium tabular-nums text-[var(--brand-soft-fg)]">
+                  {formatDays(g.medianDaysToSell)}
+                </td>
+                <td className="py-3 pr-3 text-right text-xs tabular-nums text-[var(--text-muted)]">
+                  {g.fastestDays}–{g.slowestDays}d
+                </td>
+                <td className="py-3 pr-3 text-right tabular-nums text-[var(--text-primary)]">
+                  {gbp(g.medianProfit)}
+                </td>
+                <td className="py-3 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-[var(--surface-inset)]">
+                      <div
+                        className={`h-full rounded-full ${tone.bar}`}
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-medium tabular-nums ${tone.pill}`}
+                    >
+                      {pct(g.medianMarginPct)}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-3 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
+                  {gbp(g.totalRevenue)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-function MarginBadge({ pct: p }: { pct: number }) {
-  const tone =
-    p >= 65
-      ? "bg-emerald-50 text-emerald-700"
-      : p >= 40
-        ? "bg-amber-50 text-amber-700"
-        : "bg-red-50 text-red-700";
-  return <span className={`rounded px-1.5 py-0.5 text-xs ${tone}`}>{pct(p)}</span>;
-}
+/* -------------------------------------------------------------------- */
+/* Hall of fame — podium-style ranked list                               */
+/* -------------------------------------------------------------------- */
+
+const PODIUM_TONE: Record<
+  "brand" | "emerald",
+  { value: string; medal: string[] }
+> = {
+  brand: {
+    value: "text-[var(--brand-soft-fg)]",
+    medal: [
+      "bg-[var(--brand)] text-white",
+      "bg-[var(--brand-soft)] text-[var(--brand-soft-fg)]",
+      "bg-[var(--surface-inset)] text-[var(--text-secondary)]",
+    ],
+  },
+  emerald: {
+    value: "text-[var(--accent-emerald-soft-fg)]",
+    medal: [
+      "bg-[var(--accent-emerald)] text-white",
+      "bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald-soft-fg)]",
+      "bg-[var(--surface-inset)] text-[var(--text-secondary)]",
+    ],
+  },
+};
 
 function HallOfFame({
   title,
   items,
   valueLabel,
   format,
+  accent,
 }: {
   title: string;
   items: ItemStat[];
   valueLabel: string;
   format: (i: ItemStat) => string;
+  accent: "brand" | "emerald";
 }) {
+  const tone = PODIUM_TONE[accent];
   return (
-    <section className="rounded-md border p-4">
-      <h2 className="text-sm font-medium">{title}</h2>
+    <Card>
+      <CardHeader title={title} />
       {items.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-500">No sold items yet.</p>
+        <p className="mt-3 text-sm text-[var(--text-muted)]">No sold items yet.</p>
       ) : (
-        <ol className="mt-2 divide-y">
-          {items.map((item, idx) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 py-2">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="w-5 shrink-0 text-right text-xs font-semibold text-gray-400">
-                  {idx + 1}
-                </span>
-                <div className="min-w-0">
-                  <Link
-                    href={`/inventory/${item.id}`}
-                    className="block truncate text-sm font-medium underline"
+        <ol className="mt-4 space-y-1.5">
+          {items.map((item, idx) => {
+            const rank = idx + 1;
+            const medalClass = tone.medal[Math.min(idx, 2)];
+            const isPodium = idx < 3;
+            return (
+              <li
+                key={item.id}
+                className={`flex items-center justify-between gap-3 rounded-[var(--radius-md)] px-2.5 py-2 transition-colors hover:bg-[var(--surface-muted)] ${
+                  isPodium ? "bg-[var(--surface-muted)]/50" : ""
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${medalClass}`}
+                    aria-label={`Rank ${rank}`}
                   >
-                    {item.name}
-                  </Link>
-                  <div className="truncate text-xs text-gray-500">
-                    {[item.brand, item.category].filter(Boolean).join(" · ") || "—"}
+                    {rank}
+                  </span>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/inventory/${item.id}`}
+                      className="block truncate text-sm font-medium text-[var(--text-primary)] hover:text-[var(--brand)] hover:underline"
+                    >
+                      {item.name}
+                    </Link>
+                    <div className="truncate text-xs text-[var(--text-muted)]">
+                      {[item.brand, item.category].filter(Boolean).join(" · ") ||
+                        "—"}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold text-emerald-700">
-                  {format(item)}
+                <div className="shrink-0 text-right">
+                  <div
+                    className={`font-display text-base font-semibold tabular-nums ${tone.value}`}
+                  >
+                    {format(item)}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                    {valueLabel}
+                  </div>
                 </div>
-                <div className="text-[10px] uppercase tracking-wider text-gray-400">
-                  {valueLabel}
-                </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       )}
-    </section>
+    </Card>
   );
 }

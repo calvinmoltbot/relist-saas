@@ -1,6 +1,8 @@
 export { Button, ButtonLink } from "./Button";
 export { Card, CardHeader } from "./Card";
 export { PageHeader } from "./PageHeader";
+export { SegmentedControl } from "./SegmentedControl";
+export type { SegmentedTone } from "./SegmentedControl";
 export { Sparkline } from "./Sparkline";
 export { StatusPill } from "./StatusPill";
 export { Tile } from "./Tile";

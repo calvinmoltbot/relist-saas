@@ -124,7 +124,7 @@ export default async function InventoryPage({
                     aria-label={`View ${r.name}`}
                     className="block"
                   >
-                    {r.thumbnailUrl ? (
+                    {r.hasThumbnail ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={`/api/inventory/thumb/${r.id}`}

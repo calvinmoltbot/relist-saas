@@ -18,3 +18,17 @@ Sign-up is **invite-only**. Public sign-up is disabled in the Clerk dashboard, a
 
 To grant access, send a Clerk Invitation from the dashboard (Users → Invitations → Invite). Do not re-introduce a public `/sign-up` route, a `<SignUp />` component, or a `SignUpButton` without a deliberate decision to open registration.
 
+## Domain map (do NOT touch Lily's sites)
+
+| Subdomain | What it is | Allowed actions |
+|---|---|---|
+| `relist-saas.warmwetcircles.com` | **This** project's production URL — the only canonical URL for end-user testing. | Deploy, alias, configure freely. |
+| `relist.warmwetcircles.com` | **Lily's live ReList production site** (legacy `~/Dev/Projects/relist`, repo `calvinmoltbot/relist`). | Read-only. Never deploy, alias, push, or share an alias collision. |
+| `vinted.warmwetcircles.com` | Earlier brainstorming session built for Lily. | Read-only. Off-limits the same way. |
+
+Before proposing or registering ANY new subdomain on `warmwetcircles.com`:
+- Ask Calvin to confirm the name. `vercel domains inspect` is not authoritative — Lily's sites may not appear in this project's CLI scope.
+- Never reuse a name that reads as Lily's (`relist`, `vinted`, anything else she owns) for a relist-saas URL.
+
+Use **only** `relist-saas.warmwetcircles.com` in conversation, docs, and PRs. Vercel preview URLs (`relist-saas-git-...vercel.app`) are for build verification only, not for sharing with Calvin — they create separate Clerk session contexts and cause "where did my data go?" confusion.
+

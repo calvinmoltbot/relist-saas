@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, gte, or } from "drizzle-orm";
+import { and, eq, isNotNull, gte, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items } from "@/db/schema";
 import { computeCadence, type CadenceResult } from "@/lib/inventory/cadence";
@@ -18,7 +18,22 @@ export async function computeHealth(userId: string) {
   // Pull the active inventory (listed + sourced) plus recent listed timestamps
   // for cadence. One round-trip via union of conditions keeps this cheap.
   const allRelevant = await db
-    .select()
+    .select({
+      id: items.id,
+      name: items.name,
+      brand: items.brand,
+      category: items.category,
+      size: items.size,
+      description: items.description,
+      vintedUrl: items.vintedUrl,
+      status: items.status,
+      costPrice: items.costPrice,
+      listedPrice: items.listedPrice,
+      listedAt: items.listedAt,
+      lastEditedAt: items.lastEditedAt,
+      createdAt: items.createdAt,
+      photoCount: sql<number>`COALESCE(array_length(${items.photoUrls}, 1), 0)`.as("photo_count"),
+    })
     .from(items)
     .where(
       and(
@@ -56,7 +71,7 @@ export async function computeHealth(userId: string) {
       category: r.category,
       size: r.size,
       description: r.description,
-      photoUrls: r.photoUrls ?? null,
+      photoCount: r.photoCount,
       vintedUrl: r.vintedUrl,
     })),
     5,
@@ -114,7 +129,7 @@ export async function computeHealth(userId: string) {
       category: r.category,
       size: r.size,
       description: r.description,
-      photoUrls: r.photoUrls ?? null,
+      photoCount: r.photoCount,
       vintedUrl: r.vintedUrl,
     });
     const gap = Math.max(0.2, (100 - score) / 100);

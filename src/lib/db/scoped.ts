@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   priceData,
@@ -16,6 +16,28 @@ type NewExpense = typeof expenses.$inferInsert;
 type NewItem = typeof items.$inferInsert;
 type NewTransaction = typeof transactions.$inferInsert;
 type ItemUpdate = Partial<typeof items.$inferInsert>;
+
+/** Slim column set for dedup lookups — everything except the photo blobs.
+ *  Selecting `photo_urls` here would pull every item's base64 array (~150KB
+ *  each) just to check whether it's empty in the dedup branch below.
+ *  We expose `hasPhotos` as a boolean derived in SQL instead. */
+const FIND_ITEM_COLS = {
+  id: items.id,
+  userId: items.userId,
+  name: items.name,
+  brand: items.brand,
+  category: items.category,
+  condition: items.condition,
+  size: items.size,
+  costPrice: items.costPrice,
+  listedPrice: items.listedPrice,
+  soldPrice: items.soldPrice,
+  status: items.status,
+  description: items.description,
+  vintedUrl: items.vintedUrl,
+  thumbnailUrl: items.thumbnailUrl,
+  hasPhotos: sql<boolean>`COALESCE(array_length(${items.photoUrls}, 1), 0) > 0`.as("has_photos"),
+} as const;
 
 export type InventoryFilters = {
   status?: string | null;
@@ -123,7 +145,34 @@ export function userScope(userId: string) {
             : desc(items.createdAt);
 
       const rows = await db
-        .select()
+        .select({
+          id: items.id,
+          userId: items.userId,
+          name: items.name,
+          brand: items.brand,
+          category: items.category,
+          condition: items.condition,
+          size: items.size,
+          costPrice: items.costPrice,
+          listedPrice: items.listedPrice,
+          soldPrice: items.soldPrice,
+          status: items.status,
+          platform: items.platform,
+          thumbnailUrl: items.thumbnailUrl,
+          description: items.description,
+          sourceType: items.sourceType,
+          sourceLocation: items.sourceLocation,
+          vintedUrl: items.vintedUrl,
+          listedAt: items.listedAt,
+          soldAt: items.soldAt,
+          buyerPaidShipping: items.buyerPaidShipping,
+          shippedAt: items.shippedAt,
+          lastEditedAt: items.lastEditedAt,
+          relistCount: items.relistCount,
+          createdAt: items.createdAt,
+          updatedAt: items.updatedAt,
+          isSample: items.isSample,
+        })
         .from(items)
         .where(and(...conds))
         .orderBy(orderBy);
@@ -153,7 +202,7 @@ export function userScope(userId: string) {
 
     findItemByVintedUrl: async (url: string) => {
       const [row] = await db
-        .select()
+        .select(FIND_ITEM_COLS)
         .from(items)
         .where(and(eq(items.userId, userId), eq(items.vintedUrl, url)))
         .limit(1);
@@ -162,7 +211,7 @@ export function userScope(userId: string) {
 
     findItemByName: async (name: string) => {
       const [row] = await db
-        .select()
+        .select(FIND_ITEM_COLS)
         .from(items)
         .where(and(eq(items.userId, userId), ilike(items.name, name.trim())))
         .limit(1);

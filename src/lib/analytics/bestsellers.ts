@@ -46,7 +46,19 @@ export async function computeBestsellers(userId: string, range: DateRange) {
   // Pull sold + shipped items in the user's scope; we filter by soldAt range
   // in JS so the schema's soldAt nullable case stays explicit.
   const rows = await db
-    .select()
+    .select({
+      id: items.id,
+      name: items.name,
+      brand: items.brand,
+      category: items.category,
+      sourceType: items.sourceType,
+      condition: items.condition,
+      size: items.size,
+      costPrice: items.costPrice,
+      soldPrice: items.soldPrice,
+      listedAt: items.listedAt,
+      soldAt: items.soldAt,
+    })
     .from(items)
     .where(
       and(
@@ -65,7 +77,11 @@ export async function computeBestsellers(userId: string, range: DateRange) {
   const ids = inRange.map((r) => r.id);
   const txns = ids.length
     ? await db
-        .select()
+        .select({
+          itemId: transactions.itemId,
+          shippingCost: transactions.shippingCost,
+          platformFees: transactions.platformFees,
+        })
         .from(transactions)
         .where(
           and(

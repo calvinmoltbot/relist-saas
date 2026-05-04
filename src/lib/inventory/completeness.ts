@@ -35,7 +35,10 @@ export interface ItemLike {
   category: string | null;
   size: string | null;
   description: string | null;
-  photoUrls: string[] | null;
+  /** Either pass the array (legacy) or a precomputed count (preferred — avoids
+   *  pulling base64 blobs from Postgres just to call .length). */
+  photoUrls?: string[] | null;
+  photoCount?: number | null;
   vintedUrl: string | null;
 }
 
@@ -64,7 +67,12 @@ export function scoreItem(item: ItemLike): CompletenessResult {
     ["category", hasText(item.category)],
     ["size", hasText(item.size)],
     ["description", hasText(item.description, 40)],
-    ["photos", Array.isArray(item.photoUrls) && item.photoUrls.length >= 3],
+    [
+      "photos",
+      typeof item.photoCount === "number"
+        ? item.photoCount >= 3
+        : Array.isArray(item.photoUrls) && item.photoUrls.length >= 3,
+    ],
     ["title", wordCount(item.name) >= 4],
     ["vintedUrl", hasText(item.vintedUrl)],
   ];

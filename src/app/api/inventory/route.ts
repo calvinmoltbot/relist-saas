@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     if (!existing.listedPrice && data.listedPrice) updates.listedPrice = data.listedPrice;
     if (!existing.description && data.description) updates.description = data.description;
     if (!existing.vintedUrl && data.vintedUrl) updates.vintedUrl = data.vintedUrl;
-    if (data.photoUrls?.length && !existing.photoUrls?.length) {
+    if (data.photoUrls?.length && !existing.hasPhotos) {
       updates.photoUrls = data.photoUrls;
       if (data.thumbnailUrl && !existing.thumbnailUrl) updates.thumbnailUrl = data.thumbnailUrl;
     }

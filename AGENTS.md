@@ -32,3 +32,23 @@ Before proposing or registering ANY new subdomain on `warmwetcircles.com`:
 
 Use **only** `relist-saas.warmwetcircles.com` in conversation, docs, and PRs. Vercel preview URLs (`relist-saas-git-...vercel.app`) are for build verification only, not for sharing with Calvin — they create separate Clerk session contexts and cause "where did my data go?" confusion.
 
+## Design constraints
+
+### No-scroll rule (desktop)
+
+Primary app surfaces — Dashboard, Inventory list, Item detail, Profit, Health, Bestsellers, Plan — must fit a **1280 × 800** viewport without vertical page scroll on first load. If content can't fit, redesign first: denser layout, collapsed sections, a scrollable inner region (e.g. a table inside a fixed-height card), or a tabbed split. Page scroll is a last resort, not the default.
+
+Mobile is exempt — issue #30 owns the responsive pass and natural mobile scrolling is fine. Modals, drawers, and forms past their initial revealed state may scroll internally.
+
+When implementing or reviewing a UI change, verify against 1280 × 800 before opening the PR. If the page now scrolls, the change isn't done.
+
+### Vinted has no seller fees
+
+This app is Vinted-only and Vinted **does not charge sellers any fees** — no listing fee, no transaction fee, no payout fee. The product must reflect that:
+
+- **Sale forms** (Mark as sold, item edit) must NOT ask for a "fees" amount. Sold price and shipping cost are the only sale inputs.
+- **Profit calculations** treat fees as zero. Don't show a "fees" line in tiles, breakdowns, or charts.
+- **Expense categories** must NOT include a `platform_fee` option.
+- **Sample data** must NOT seed fee values.
+
+The `transactions.platformFees` column in the schema is retained as a dead, default-zero field — do not surface it, but don't drop it in a migration either (low value, migration risk). New code paths should ignore it.

@@ -2,12 +2,43 @@ import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { userScope } from "@/lib/db/scoped";
-import { ItemActions } from "./actions";
+import { Card, StatusPill } from "@/components/ui";
+import { DeleteItemButton, ItemActions } from "./actions";
 import { ItemPhotos } from "./photos";
 
 function gbp(n: string | null) {
   return n == null ? "—" : `£${parseFloat(n).toFixed(2)}`;
 }
+
+function formatDateTime(d: Date | string | null) {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDate(d: Date | string | null) {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+const CONDITION_LABEL: Record<string, string> = {
+  new: "New",
+  like_new: "Like new",
+  good: "Good",
+  fair: "Fair",
+  very_good: "Very good",
+};
 
 export default async function ItemDetail({
   params,
@@ -24,84 +55,168 @@ export default async function ItemDetail({
 
   const txns = await scope.listTransactionsForItem(id);
 
+  const subtitleParts = [item.brand, item.category, item.size].filter(Boolean);
+
   return (
-    <div className="max-w-3xl space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
-          <Link href="/inventory" className="text-xs text-gray-500 underline">
-            ← Inventory
-          </Link>
-          <h1 className="mt-1 text-2xl font-semibold">{item.name}</h1>
-          <p className="text-sm text-gray-600">
-            {[item.brand, item.category, item.size].filter(Boolean).join(" · ") || "—"}
-          </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <header className="space-y-2">
+        <Link
+          href="/inventory"
+          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        >
+          <span aria-hidden>←</span> Inventory
+        </Link>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">
+              {item.name}
+            </h1>
+            {subtitleParts.length > 0 && (
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                {subtitleParts.join(" · ")}
+              </p>
+            )}
+          </div>
+          <StatusPill status={item.status} size="md" />
         </div>
-        <span className="rounded bg-gray-100 px-2 py-1 text-xs">{item.status}</span>
+      </header>
+
+      {/* Hero row: photos (left) + facts/actions (right) */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Card>
+          <ItemPhotos itemId={item.id} initialPhotos={item.photoUrls ?? []} />
+        </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <Row label="Cost" value={gbp(item.costPrice)} />
+              <Row label="Listed" value={gbp(item.listedPrice)} />
+              <Row label="Sold" value={gbp(item.soldPrice)} />
+              <Row
+                label="Condition"
+                value={
+                  item.condition
+                    ? CONDITION_LABEL[item.condition] ?? item.condition
+                    : "—"
+                }
+              />
+              <Row label="Listed at" value={formatDateTime(item.listedAt)} />
+              <Row label="Sold at" value={formatDateTime(item.soldAt)} />
+              {item.shippedAt && (
+                <Row
+                  label="Shipped at"
+                  value={formatDateTime(item.shippedAt)}
+                />
+              )}
+            </dl>
+          </Card>
+
+          <Card>
+            <ItemActions
+              id={item.id}
+              status={item.status}
+              costPrice={item.costPrice}
+              listedPrice={item.listedPrice}
+              soldPrice={item.soldPrice}
+            />
+          </Card>
+
+          <div className="flex justify-end">
+            <DeleteItemButton id={item.id} />
+          </div>
+        </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
-        <Row label="Cost" value={gbp(item.costPrice)} />
-        <Row label="Listed" value={gbp(item.listedPrice)} />
-        <Row label="Sold" value={gbp(item.soldPrice)} />
-        <Row label="Condition" value={item.condition ?? "—"} />
-        <Row
-          label="Listed at"
-          value={item.listedAt ? new Date(item.listedAt).toLocaleDateString() : "—"}
-        />
-        <Row
-          label="Sold at"
-          value={item.soldAt ? new Date(item.soldAt).toLocaleDateString() : "—"}
-        />
-      </dl>
-
-      <ItemPhotos itemId={item.id} initialPhotos={item.photoUrls ?? []} />
-
+      {/* Description */}
       {item.description && (
-        <p className="whitespace-pre-wrap rounded-md border bg-gray-50 p-4 text-sm">
-          {item.description}
-        </p>
+        <Card>
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">
+            Description
+          </h2>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--text-primary)]">
+            {item.description}
+          </p>
+        </Card>
       )}
 
-      <ItemActions
-        id={item.id}
-        status={item.status}
-        listedPrice={item.listedPrice}
-        soldPrice={item.soldPrice}
-      />
-
-      <section>
-        <h2 className="text-sm font-medium text-gray-600">Transactions</h2>
+      {/* Transactions */}
+      <Card padded={false}>
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">
+            Transactions
+          </h2>
+          <span className="text-xs text-[var(--text-muted)]">
+            {txns.length} {txns.length === 1 ? "entry" : "entries"}
+          </span>
+        </div>
         {txns.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-500">No transactions yet.</p>
+          <p className="px-5 py-6 text-sm text-[var(--text-muted)]">
+            No transactions yet.
+          </p>
         ) : (
-          <table className="mt-2 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase text-gray-500">
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Gross</th>
-                <th className="py-2 pr-4">Shipping</th>
-                <th className="py-2 pr-4">Fees</th>
-                <th className="py-2 pr-4">Profit</th>
-                <th className="py-2 pr-4">Completed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {txns.map((t) => (
-                <tr key={t.id} className="border-b">
-                  <td className="py-2 pr-4">{t.transactionType}</td>
-                  <td className="py-2 pr-4">{gbp(t.grossPrice)}</td>
-                  <td className="py-2 pr-4">{gbp(t.shippingCost)}</td>
-                  <td className="py-2 pr-4">{gbp(t.platformFees)}</td>
-                  <td className="py-2 pr-4">{gbp(t.profit)}</td>
-                  <td className="py-2 pr-4 text-xs text-gray-500">
-                    {t.completedAt ? new Date(t.completedAt).toLocaleString() : "—"}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                  <th className="px-5 py-2.5 font-medium">Type</th>
+                  <th className="px-3 py-2.5 font-medium">Gross</th>
+                  <th className="px-3 py-2.5 font-medium">Shipping</th>
+                  <th className="px-3 py-2.5 font-medium">Fees</th>
+                  <th className="px-3 py-2.5 font-medium">Profit</th>
+                  <th className="px-5 py-2.5 font-medium">Completed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {txns.map((t, i) => {
+                  const profitNum =
+                    t.profit != null ? parseFloat(t.profit) : null;
+                  return (
+                    <tr
+                      key={t.id}
+                      className={
+                        i === txns.length - 1
+                          ? ""
+                          : "border-b border-[var(--border-subtle)]"
+                      }
+                    >
+                      <td className="px-5 py-3">
+                        <span className="inline-flex items-center rounded-[var(--radius-sm)] bg-[var(--surface-muted)] px-2 py-0.5 text-xs capitalize text-[var(--text-secondary)]">
+                          {t.transactionType.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-[var(--text-primary)]">
+                        {gbp(t.grossPrice)}
+                      </td>
+                      <td className="px-3 py-3 text-[var(--text-secondary)]">
+                        {gbp(t.shippingCost)}
+                      </td>
+                      <td className="px-3 py-3 text-[var(--text-secondary)]">
+                        {gbp(t.platformFees)}
+                      </td>
+                      <td
+                        className={`px-3 py-3 font-medium ${
+                          profitNum == null
+                            ? "text-[var(--text-secondary)]"
+                            : profitNum >= 0
+                              ? "text-[var(--accent-emerald-soft-fg)]"
+                              : "text-[var(--accent-rose-soft-fg)]"
+                        }`}
+                      >
+                        {gbp(t.profit)}
+                      </td>
+                      <td className="px-5 py-3 text-xs text-[var(--text-muted)]">
+                        {formatDate(t.completedAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -109,8 +224,12 @@ export default async function ItemDetail({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs uppercase text-gray-500">{label}</dt>
-      <dd className="mt-0.5">{value}</dd>
+      <dt className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-sm font-medium text-[var(--text-primary)]">
+        {value}
+      </dd>
     </div>
   );
 }

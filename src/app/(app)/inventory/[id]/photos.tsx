@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui";
 
 const MAX_PHOTOS = 10;
 const MAX_BATCH = 5;
@@ -16,10 +17,12 @@ export function ItemPhotos({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const canAdd = photos.length < MAX_PHOTOS && !busy;
+  const active = photos[activeIndex] ?? photos[0];
 
   async function readFiles(files: FileList): Promise<string[]> {
     const slots = MAX_PHOTOS - photos.length;
@@ -75,60 +78,95 @@ export function ItemPhotos({
         return;
       }
       const body = await res.json();
-      setPhotos(body.item.photoUrls ?? []);
+      const nextPhotos: string[] = body.item.photoUrls ?? [];
+      setPhotos(nextPhotos);
+      setActiveIndex((i) => Math.min(i, Math.max(0, nextPhotos.length - 1)));
       router.refresh();
     });
   }
 
   return (
-    <section>
-      <div className="flex items-end justify-between">
-        <h2 className="text-sm font-medium text-gray-600">
-          Photos {photos.length > 0 && <span className="text-gray-400">· {photos.length}/{MAX_PHOTOS}</span>}
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-[var(--text-secondary)]">
+          Photos
+          {photos.length > 0 && (
+            <span className="ml-1 text-[var(--text-muted)]">
+              · {photos.length}/{MAX_PHOTOS}
+            </span>
+          )}
         </h2>
         {canAdd && (
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             onClick={() => inputRef.current?.click()}
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
             disabled={busy}
           >
             {busy ? "Uploading…" : "Add photos"}
-          </button>
+          </Button>
         )}
       </div>
 
       {error && (
-        <p className="mt-2 rounded-md bg-red-50 p-2 text-xs text-red-700">
+        <p className="rounded-[var(--radius-md)] bg-[var(--accent-rose-soft)] p-2 text-xs text-[var(--accent-rose-soft-fg)]">
           {error}
         </p>
       )}
 
       {photos.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-500">
-          No photos yet. {canAdd && "Add up to 10 — they will be resized to 1200px."}
-        </p>
-      ) : (
-        <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {photos.map((src, i) => (
-            <div
-              key={i}
-              className="relative aspect-square overflow-hidden rounded-md border bg-gray-50"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => handleRemove(i)}
-                disabled={busy}
-                aria-label={`Remove photo ${i + 1}`}
-                className="absolute right-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-xs text-red-700 shadow hover:bg-white disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+        <div className="flex aspect-square w-full items-center justify-center rounded-[var(--radius-lg)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-inset)] text-sm text-[var(--text-muted)]">
+          {canAdd
+            ? "No photos yet — add up to 10 (resized to 1200px)."
+            : "No photos."}
         </div>
+      ) : (
+        <>
+          <div className="relative aspect-square w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={active}
+              alt={`Photo ${activeIndex + 1}`}
+              className="h-full w-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => handleRemove(activeIndex)}
+              disabled={busy}
+              aria-label={`Remove photo ${activeIndex + 1}`}
+              className="absolute right-2 top-2 rounded-[var(--radius-sm)] bg-white/90 px-2 py-1 text-xs font-medium text-[var(--accent-rose-soft-fg)] shadow-[var(--elev-1)] hover:bg-white disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </div>
+
+          {photos.length > 1 && (
+            <div className="grid grid-cols-5 gap-2">
+              {photos.map((src, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveIndex(i)}
+                  aria-label={`Show photo ${i + 1}`}
+                  aria-current={i === activeIndex}
+                  className={`relative aspect-square overflow-hidden rounded-[var(--radius-md)] border bg-[var(--surface-inset)] transition ${
+                    i === activeIndex
+                      ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
+                      : "border-[var(--border-subtle)] hover:border-[var(--border-default)]"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={`Thumbnail ${i + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <input

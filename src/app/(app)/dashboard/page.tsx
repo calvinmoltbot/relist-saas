@@ -1,70 +1,92 @@
 import Link from "next/link";
+import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { computeProfit } from "@/lib/analytics/profit";
+import { computeDashboardSparks } from "@/lib/analytics/dashboard-sparks";
 import { userScope } from "@/lib/db/scoped";
-import { FirstRunNudge } from "@/components/FirstRunNudge";
 import { hasSampleData } from "@/lib/sample-data";
+import { FirstRunNudge } from "@/components/FirstRunNudge";
+import {
+  ButtonLink,
+  Card,
+  CardHeader,
+  PageHeader,
+  Tile,
+} from "@/components/ui";
 import { clearSampleDataAction } from "./sample-data-actions";
 
 const gbp = (n: number) => `£${n.toFixed(2)}`;
+const num0 = (n: number) => n.toLocaleString("en-GB");
+const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
+
+function deltaPct(spark: number[]): { label: string; dir: "up" | "down" | "flat" } | null {
+  if (spark.length < 14) return null;
+  const half = Math.floor(spark.length / 2);
+  const recent = sum(spark.slice(half));
+  const prior = sum(spark.slice(0, half));
+  if (prior === 0 && recent === 0) return null;
+  if (prior === 0) return { label: "new", dir: "up" };
+  const change = ((recent - prior) / prior) * 100;
+  if (Math.abs(change) < 1) return { label: "±0%", dir: "flat" };
+  const sign = change > 0 ? "+" : "−";
+  return {
+    label: `${sign}${Math.abs(change).toFixed(1)}%`,
+    dir: change > 0 ? "up" : "down",
+  };
+}
 
 export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  // Headline = current month
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  const [month, allTime, itemCount, sampleLoaded] = await Promise.all([
+
+  const [month, allTime, itemCount, sampleLoaded, sparks] = await Promise.all([
     computeProfit(userId, { from, to }),
     computeProfit(userId, { from: null, to: null }),
     userScope(userId).countItems(),
     hasSampleData(userId),
+    computeDashboardSparks(userId),
   ]);
+
   const isFirstRun = itemCount === 0;
 
-  const tiles: Array<{ label: string; value: string; sub?: string }> = [
-    { label: "Revenue this month", value: gbp(month.summary.revenue), sub: `${month.summary.itemsSold} sold` },
-    { label: "Net profit this month", value: gbp(month.summary.netProfit), sub: `${month.summary.avgMargin}% avg margin` },
-    { label: "Stock value (listed)", value: gbp(allTime.summary.stockListedValue), sub: `${allTime.summary.itemsListed} listed` },
-    { label: "Items sourced", value: allTime.summary.itemsSourced.toString(), sub: "ready to list" },
-  ];
+  const revDelta = deltaPct(sparks.revenue);
+  const profitDelta = deltaPct(sparks.profit);
+  const stockDelta = deltaPct(sparks.listed);
+
+  const topThumbs = await Promise.all(
+    allTime.itemProfits.slice(0, 8).map(async (p) => ({
+      ...p,
+      thumb: await userScope(userId).getItemThumbnail(p.id),
+    })),
+  );
 
   return (
     <div className="space-y-8">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {now.toLocaleString("en-GB", { month: "long", year: "numeric" })}
-          </p>
-        </div>
-        <div className="flex gap-2 text-sm">
-          <Link href="/profit" className="rounded-md border px-3 py-1.5">
-            Profit
-          </Link>
-          <Link
-            href="/inventory/new"
-            className="rounded-md bg-black px-3 py-1.5 text-white"
-          >
-            Add item
-          </Link>
-        </div>
-      </header>
-
-      {isFirstRun && <FirstRunNudge />}
+      <PageHeader
+        title="Dashboard"
+        subtitle={now.toLocaleString("en-GB", { month: "long", year: "numeric" })}
+        actions={
+          <>
+            <ButtonLink href="/profit" variant="secondary" size="sm">Profit</ButtonLink>
+            <ButtonLink href="/inventory/new" size="sm">+ Add item</ButtonLink>
+          </>
+        }
+      />
 
       {sampleLoaded && (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-          <span className="text-amber-900">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/30 bg-[var(--accent-amber-soft)] px-4 py-3 text-sm text-[var(--accent-amber-soft-fg)]">
+          <span>
             Sample data is loaded in your account. Clear it once you&apos;re ready to work with real items only.
           </span>
           <form action={clearSampleDataAction}>
             <button
               type="submit"
-              className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-amber-900"
+              className="rounded-[var(--radius-md)] border border-[var(--accent-amber)]/40 bg-white px-3 py-1.5 text-xs font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--surface-muted)]"
             >
               Clear sample data
             </button>
@@ -72,55 +94,177 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {tiles.map((t) => (
-          <div key={t.label} className="rounded-md border p-4">
-            <div className="text-xs uppercase text-gray-500">{t.label}</div>
-            <div className="mt-1 text-2xl font-semibold">{t.value}</div>
-            {t.sub && <div className="mt-0.5 text-xs text-gray-500">{t.sub}</div>}
-          </div>
-        ))}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Tile
+          label="Revenue this month"
+          value={gbp(month.summary.revenue)}
+          sub={`${month.summary.itemsSold} sold`}
+          tone="brand"
+          icon={<MoneyIcon />}
+          delta={revDelta?.label}
+          deltaDirection={revDelta?.dir}
+          spark={sparks.revenue}
+        />
+        <Tile
+          label="Net profit this month"
+          value={gbp(month.summary.netProfit)}
+          sub={`${month.summary.avgMargin}% avg margin`}
+          tone="emerald"
+          icon={<TrendIcon />}
+          delta={profitDelta?.label}
+          deltaDirection={profitDelta?.dir}
+          spark={sparks.profit}
+        />
+        <Tile
+          label="Stock value (listed)"
+          value={gbp(allTime.summary.stockListedValue)}
+          sub={`${allTime.summary.itemsListed} listed`}
+          tone="amber"
+          icon={<StackIcon />}
+          delta={stockDelta?.label}
+          deltaDirection={stockDelta?.dir}
+          spark={sparks.listed}
+        />
+        <Tile
+          label="Items sourced"
+          value={num0(allTime.summary.itemsSourced)}
+          sub="ready to list"
+          tone="violet"
+          icon={<PlusIcon />}
+          spark={sparks.sourced}
+        />
       </section>
 
-      <section>
-        <h2 className="text-sm font-medium text-gray-600">Top profit (lifetime)</h2>
-        {allTime.itemProfits.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-500">
-            Nothing sold yet. Add items at{" "}
-            <Link href="/inventory/new" className="underline">
-              Inventory → New
-            </Link>
-            .
-          </p>
-        ) : (
-          <table className="mt-2 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase text-gray-500">
-                <th className="py-2 pr-4">Item</th>
-                <th className="py-2 pr-4">Brand</th>
-                <th className="py-2 pr-4 text-right">Sold</th>
-                <th className="py-2 pr-4 text-right">Net</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allTime.itemProfits.slice(0, 8).map((p) => (
-                <tr key={p.id} className="border-b">
-                  <td className="py-2 pr-4">
-                    <Link href={`/inventory/${p.id}`} className="underline">
-                      {p.name}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4">{p.brand ?? "—"}</td>
-                  <td className="py-2 pr-4 text-right">{gbp(p.sold)}</td>
-                  <td className="py-2 pr-4 text-right font-medium">
-                    {gbp(p.netProfit)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card padded={false}>
+            <div className="flex items-center justify-between p-5 pb-3">
+              <h2 className="font-display text-lg font-semibold">Top profit (lifetime)</h2>
+              <Link
+                href="/profit"
+                className="text-xs font-medium text-[var(--brand)] hover:underline"
+              >
+                View all →
+              </Link>
+            </div>
+            {topThumbs.length === 0 ? (
+              <p className="px-5 pb-5 text-sm text-[var(--text-muted)]">
+                Nothing sold yet. Add items at{" "}
+                <Link href="/inventory/new" className="text-[var(--brand)] underline">
+                  Inventory → New
+                </Link>
+                .
+              </p>
+            ) : (
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-y border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                    <th className="py-2 pl-5 pr-3 font-medium">Item</th>
+                    <th className="py-2 pr-3 font-medium">Brand</th>
+                    <th className="py-2 pr-3 text-right font-medium">Sold</th>
+                    <th className="py-2 pr-5 text-right font-medium">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topThumbs.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="border-b border-[var(--border-subtle)] last:border-b-0 hover:bg-[var(--surface-muted)]/60"
+                    >
+                      <td className="py-2.5 pl-5 pr-3">
+                        <Link href={`/inventory/${p.id}`} className="flex items-center gap-3">
+                          <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
+                            {p.thumb ? (
+                              <Image
+                                src={p.thumb}
+                                alt=""
+                                width={36}
+                                height={36}
+                                className="h-full w-full object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <span className="m-auto text-[9px] uppercase text-[var(--text-muted)]">no img</span>
+                            )}
+                          </span>
+                          <span className="font-medium text-[var(--text-primary)] hover:underline">
+                            {p.name}
+                          </span>
+                        </Link>
+                      </td>
+                      <td className="py-2.5 pr-3 text-[var(--text-secondary)]">{p.brand ?? "—"}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums">{gbp(p.sold)}</td>
+                      <td className="py-2.5 pr-5 text-right font-semibold tabular-nums text-[var(--accent-emerald-soft-fg)]">
+                        {gbp(p.netProfit)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </div>
+
+        <div>
+          {isFirstRun ? (
+            <FirstRunNudge variant="panel" />
+          ) : (
+            <Card>
+              <CardHeader title="Quick actions" description="The fast path to common tasks." />
+              <ul className="mt-4 space-y-2 text-sm">
+                <ActionRow href="/inventory/new" label="Add a new item" />
+                <ActionRow href="/plan" label="See today's plan" />
+                <ActionRow href="/inventory?status=listed" label="Browse listed items" />
+                <ActionRow href="/expenses" label="Log an expense" />
+              </ul>
+            </Card>
+          )}
+        </div>
       </section>
     </div>
+  );
+}
+
+function ActionRow({ href, label }: { href: string; label: string }) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-3 py-2 hover:bg-[var(--surface-muted)]"
+      >
+        <span className="text-[var(--text-primary)]">{label}</span>
+        <span className="text-[var(--text-muted)]" aria-hidden>›</span>
+      </Link>
+    </li>
+  );
+}
+
+/* ----- Icons (inline so we don't pull a lib) ----- */
+function MoneyIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M11 5.5C11 4.67 10.1 4 9 4S7 4.67 7 5.5 7.9 7 9 7s2 .67 2 1.5S10.1 10 9 10s-2-.67-2-1.5M9 3v1M9 10v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function TrendIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M3 14l4-4 3 3 5-6M11 7h4v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function StackIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M9 2L2 5.5l7 3.5 7-3.5L9 2zM2 9l7 3.5L16 9M2 12.5L9 16l7-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M9 4v10M4 9h10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
   );
 }

@@ -1,6 +1,12 @@
 // Listing completeness score (0-100). Weights sum to 100; missing fields are
 // penalised. `condition` is intentionally omitted (UX choice — see legacy notes);
 // `vintedUrl` takes its slot.
+//
+// Cost is NOT a completeness field. Per AGENTS.md → "Cost handling", items
+// with `acquisitionType === "own"` always have cost = 0; treating cost as
+// "missing" for them would penalise a perfectly valid listing. The current
+// weights ignore cost entirely so own and bought items are scored on the
+// same fields, which is what we want.
 
 export const WEIGHTS = {
   brand: 20,

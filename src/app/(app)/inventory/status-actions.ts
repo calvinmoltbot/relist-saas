@@ -3,6 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { userScope } from "@/lib/db/scoped";
+import { coerceMoney } from "@/lib/money";
 
 type Status = "sourced" | "listed" | "sold" | "shipped";
 
@@ -51,9 +52,9 @@ export async function markItemSoldAction(
 
   const [updated] = await scope.updateItem(id, updates);
 
-  const cost = updated.costPrice ?? "0";
+  const cost = coerceMoney(updated.costPrice);
   const profit = (
-    Number(soldPrice) - Number(cost) - Number(shipping)
+    coerceMoney(soldPrice) - cost - coerceMoney(shipping)
   ).toFixed(2);
 
   await scope.insertTransaction({

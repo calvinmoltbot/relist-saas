@@ -2,8 +2,9 @@ import { and, eq, gte, lte, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items, transactions, expenses } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
+import { coerceMoney } from "@/lib/money";
 
-const num = (s: string | null | undefined) => (s ? parseFloat(s) : 0);
+const num = coerceMoney;
 const round = (n: number) => Math.round(n * 100) / 100;
 
 export type ProfitReport = Awaited<ReturnType<typeof computeProfit>>;

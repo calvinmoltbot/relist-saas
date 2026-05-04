@@ -65,6 +65,7 @@ const CreateSchema = z.object({
   photoUrls: z.array(z.string()).nullish(),
   thumbnailUrl: z.string().nullish(),
   status: z.enum(["sourced", "listed", "sold", "shipped"]).optional(),
+  acquisitionType: z.enum(["bought", "own"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -107,6 +108,10 @@ export async function POST(req: NextRequest) {
   }
 
   const status = data.status ?? "sourced";
+  const acquisitionType = data.acquisitionType ?? "bought";
+  // 'own' items always have cost = 0; ignore any incoming non-zero cost.
+  const costPrice =
+    acquisitionType === "own" ? "0" : (data.costPrice ?? null);
   const now = new Date();
   const [item] = await scope.insertItem({
     name: data.name,
@@ -114,7 +119,8 @@ export async function POST(req: NextRequest) {
     category: data.category ?? null,
     condition: data.condition ?? null,
     size: data.size ?? null,
-    costPrice: data.costPrice ?? null,
+    acquisitionType,
+    costPrice,
     listedPrice: data.listedPrice ?? null,
     description: data.description ?? null,
     sourceType: data.sourceType ?? null,

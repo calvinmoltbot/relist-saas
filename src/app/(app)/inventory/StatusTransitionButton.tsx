@@ -2,28 +2,40 @@
 
 import { useTransition } from "react";
 import { transitionItemStatusAction } from "./status-actions";
+import { MarkAsSoldPopover } from "./MarkAsSoldPopover";
 
 type Status = "sourced" | "listed" | "sold" | "shipped";
 
-const NEXT_LABEL: Partial<Record<Status, { label: string; next: Status }>> = {
+const ONE_TAP: Partial<Record<Status, { label: string; next: Status }>> = {
   sourced: { label: "Mark as listed", next: "listed" },
   sold: { label: "Mark as shipped", next: "shipped" },
 };
 
 /**
- * Inline action chip for a single-tap status transition from the inventory
- * list. Renders nothing for statuses without a meaningful next-step from this
- * surface (listed → sold needs a sale price; shipped is terminal).
+ * Inline action chip for a row's next status transition. Three forms:
+ *   sourced → listed   one-tap chip
+ *   listed  → sold     chip with anchored popover (sold price + shipping)
+ *   sold    → shipped  one-tap chip
+ *   shipped            no action (terminal)
  */
 export function StatusTransitionButton({
   itemId,
   status,
+  listedPrice,
 }: {
   itemId: string;
   status: string;
+  listedPrice?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
-  const def = NEXT_LABEL[status as Status];
+
+  if (status === "listed") {
+    return (
+      <MarkAsSoldPopover itemId={itemId} defaultSoldPrice={listedPrice} />
+    );
+  }
+
+  const def = ONE_TAP[status as Status];
   if (!def) return null;
 
   return (

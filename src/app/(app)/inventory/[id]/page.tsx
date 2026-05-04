@@ -5,6 +5,7 @@ import { userScope } from "@/lib/db/scoped";
 import { Card, StatusPill } from "@/components/ui";
 import { ItemActions } from "./actions";
 import { ItemPhotos } from "./photos";
+import { AcquisitionChip } from "./AcquisitionChip";
 
 function gbp(n: string | null) {
   return n == null ? "—" : `£${parseFloat(n).toFixed(2)}`;
@@ -66,7 +67,10 @@ export default async function ItemDetail({
               </p>
             )}
           </div>
-          <StatusPill status={item.status} size="md" />
+          <div className="flex items-center gap-2">
+            <StatusPill status={item.status} size="md" />
+            <AcquisitionChip id={item.id} initial={item.acquisitionType} />
+          </div>
         </div>
       </header>
 

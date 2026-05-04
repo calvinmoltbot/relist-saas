@@ -52,3 +52,7 @@ This app is Vinted-only and Vinted **does not charge sellers any fees** — no l
 - **Sample data** must NOT seed fee values.
 
 The `transactions.platformFees` column in the schema is retained as a dead, default-zero field — do not surface it, but don't drop it in a migration either (low value, migration risk). New code paths should ignore it.
+
+### Cost handling
+
+Items have an `acquisitionType` of `bought` or `own`. **`own` items always treat cost as 0** — the new-item form hides the cost field for them, and completeness checks do not flag missing cost. Anywhere cost is read for math, route through `coerceMoney()` from `src/lib/money.ts` so null and missing values become 0 cleanly. Reporting splits bought vs own (issue #46) — never blend them when showing a "profit margin" %.

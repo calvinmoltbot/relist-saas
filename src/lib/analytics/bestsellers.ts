@@ -2,6 +2,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items, transactions } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
+import { coerceMoney } from "@/lib/money";
 
 export const MIN_GROUP_SIZE = 2;
 
@@ -31,7 +32,7 @@ export interface GroupStat {
 
 export type BestsellersReport = Awaited<ReturnType<typeof computeBestsellers>>;
 
-const num = (s: string | null | undefined) => (s ? parseFloat(s) : 0);
+const num = coerceMoney;
 
 function median(values: number[]): number {
   if (values.length === 0) return 0;

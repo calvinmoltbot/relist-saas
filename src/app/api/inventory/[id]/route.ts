@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId, UnauthorizedError } from "@/lib/auth/getUserId";
 import { userScope } from "@/lib/db/scoped";
+import { coerceMoney } from "@/lib/money";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,7 @@ const PatchSchema = z.object({
   photoUrls: z.array(z.string()).nullish(),
   thumbnailUrl: z.string().nullish(),
   status: z.enum(["sourced", "listed", "sold", "shipped"]).optional(),
+  acquisitionType: z.enum(["bought", "own"]).optional(),
   shippingCost: numStr, // for the auto-created sell tx
 });
 
@@ -81,6 +83,20 @@ export async function PATCH(
     if (v !== undefined) updates[k] = v;
   }
 
+  // Acquisition-type semantics:
+  //   • Switching to 'own' zeros the cost.
+  //   • Switching to 'bought' clears cost so the user can re-enter it
+  //     (unless they passed a costPrice in the same request).
+  if (data.acquisitionType === "own") {
+    updates.costPrice = "0";
+  } else if (
+    data.acquisitionType === "bought" &&
+    existing.acquisitionType !== "bought" &&
+    data.costPrice === undefined
+  ) {
+    updates.costPrice = null;
+  }
+
   // Status transitions stamp the corresponding timestamp.
   if (data.status && data.status !== existing.status) {
     if (data.status === "listed" && !existing.listedAt) updates.listedAt = now;
@@ -94,9 +110,8 @@ export async function PATCH(
   if (data.status === "sold" && existing.status !== "sold") {
     const gross = data.soldPrice ?? updated.soldPrice ?? updated.listedPrice ?? "0";
     const shipping = data.shippingCost ?? "0";
-    const cost = updated.costPrice ?? "0";
     const profit = (
-      Number(gross) - Number(cost) - Number(shipping)
+      coerceMoney(gross) - coerceMoney(updated.costPrice) - coerceMoney(shipping)
     ).toFixed(2);
 
     await scope.insertTransaction({

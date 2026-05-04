@@ -1,4 +1,5 @@
 import {
+  pgEnum,
   pgTable,
   text,
   integer,
@@ -10,6 +11,13 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+/**
+ * Acquisition type — `bought` (sourced for resale, has a real cost) vs
+ * `own` (already owned, cost is genuinely 0). See AGENTS.md → "Cost handling".
+ */
+export const acquisitionTypeEnum = pgEnum("acquisition_type", ["bought", "own"]);
+export type AcquisitionType = (typeof acquisitionTypeEnum.enumValues)[number];
 
 /**
  * Tenancy invariant: every row belongs to one Clerk user.
@@ -85,6 +93,9 @@ export const items = pgTable(
     category: text("category"),
     condition: text("condition"), // new | like_new | good | fair
     size: text("size"),
+    acquisitionType: acquisitionTypeEnum("acquisition_type")
+      .notNull()
+      .default("bought"),
     costPrice: numeric("cost_price", { precision: 10, scale: 2 }),
     listedPrice: numeric("listed_price", { precision: 10, scale: 2 }),
     soldPrice: numeric("sold_price", { precision: 10, scale: 2 }),

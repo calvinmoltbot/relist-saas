@@ -4,8 +4,9 @@ import { items } from "@/db/schema";
 import { computeCadence, type CadenceResult } from "@/lib/inventory/cadence";
 import { scoreItem, summarise, type CompletenessSummary } from "@/lib/inventory/completeness";
 import { getTargets } from "@/lib/settings";
+import { coerceMoney } from "@/lib/money";
 
-const num = (s: string | null | undefined) => (s ? parseFloat(s) : 0);
+const num = coerceMoney;
 
 export type HealthReport = Awaited<ReturnType<typeof computeHealth>>;
 

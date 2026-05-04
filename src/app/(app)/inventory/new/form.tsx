@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+type AcquisitionType = "bought" | "own";
+
 export function NewItemForm() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acquisitionType, setAcquisitionType] =
+    useState<AcquisitionType>("bought");
   const [form, setForm] = useState({
     name: "",
     brand: "",
@@ -29,12 +33,20 @@ export function NewItemForm() {
     setBusy(true);
     setError(null);
     try {
+      // 'own' items always have cost = 0 (cleaner than null going forward).
+      const costPrice =
+        acquisitionType === "own"
+          ? "0"
+          : form.costPrice === ""
+            ? null
+            : form.costPrice;
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...form,
-          costPrice: form.costPrice || null,
+          acquisitionType,
+          costPrice,
           listedPrice: form.listedPrice || null,
           vintedUrl: form.vintedUrl || null,
           brand: form.brand || null,
@@ -56,6 +68,47 @@ export function NewItemForm() {
 
   return (
     <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="md:col-span-2">
+        <span className="text-xs uppercase text-gray-500">
+          Where did this come from?
+        </span>
+        <div
+          role="radiogroup"
+          aria-label="Where did this come from?"
+          className="mt-1 inline-flex rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-1"
+        >
+          {(
+            [
+              { value: "bought", label: "Bought" },
+              { value: "own", label: "Own" },
+            ] as const
+          ).map((opt) => {
+            const isActive = acquisitionType === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => setAcquisitionType(opt.value)}
+                className={`inline-flex items-center rounded-[var(--radius-md)] px-4 py-1.5 text-xs font-medium transition-colors ${
+                  isActive
+                    ? "bg-[var(--brand)] text-white shadow-[var(--elev-1)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-card)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          {acquisitionType === "own"
+            ? "Already yours — we treat the cost as £0."
+            : "Sourced for resale — record what you paid."}
+        </p>
+      </div>
+
       <Field label="Name *" full>
         <input
           required
@@ -98,15 +151,17 @@ export function NewItemForm() {
           ))}
         </select>
       </Field>
-      <Field label="Cost price (£)">
-        <input
-          type="number"
-          step="0.01"
-          value={form.costPrice}
-          onChange={(e) => set("costPrice", e.target.value)}
-          className="w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </Field>
+      {acquisitionType === "bought" && (
+        <Field label="Cost price (£)">
+          <input
+            type="number"
+            step="0.01"
+            value={form.costPrice}
+            onChange={(e) => set("costPrice", e.target.value)}
+            className="w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </Field>
+      )}
       <Field label="Listed price (£)">
         <input
           type="number"

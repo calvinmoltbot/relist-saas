@@ -21,15 +21,25 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const sort = sp.get("sort");
-  const items = await userScope(u.userId).listItems({
+  const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10) || 1);
+  const pageSize = Math.max(1, Math.min(200, parseInt(sp.get("pageSize") ?? "100", 10) || 100));
+  const result = await userScope(u.userId).listItems({
     status: sp.get("status"),
     search: sp.get("search"),
     sort: sort === "price" || sort === "brand" || sort === "date" ? sort : null,
     incompleteOnly: sp.get("incompleteOnly") === "1",
+    page,
+    pageSize,
   });
 
   return NextResponse.json(
-    { items },
+    {
+      items: result.rows,
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      pageCount: result.pageCount,
+    },
     { headers: { "Cache-Control": "private, max-age=120, stale-while-revalidate=300" } },
   );
 }

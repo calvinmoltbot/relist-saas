@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, Card, CardHeader } from "@/components/ui";
 
 type Key = {
   id: string;
@@ -17,6 +18,7 @@ export function ApiKeysClient({ initialKeys }: { initialKeys: Key[] }) {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<{ name: string; token: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function create(e: React.FormEvent) {
@@ -32,12 +34,23 @@ export function ApiKeysClient({ initialKeys }: { initialKeys: Key[] }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
       setJustCreated({ name: data.name, token: data.token });
+      setCopied(false);
       setName("");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function copyToken(token: string) {
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* noop */
     }
   }
 
@@ -54,84 +67,148 @@ export function ApiKeysClient({ initialKeys }: { initialKeys: Key[] }) {
   }
 
   return (
-    <div className="mt-6 space-y-8">
-      <form onSubmit={create} className="flex items-end gap-3">
-        <label className="flex flex-col text-sm">
-          <span className="mb-1 text-gray-600">Name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. My laptop"
-            className="rounded-md border px-3 py-2"
-            required
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={creating || !name}
-          className="rounded-md bg-black px-4 py-2 text-white disabled:opacity-50"
-        >
-          {creating ? "Creating…" : "Create key"}
-        </button>
-        {error && <span className="text-sm text-red-600">{error}</span>}
-      </form>
+    <div className="space-y-6">
+      <section className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/40 bg-[var(--accent-amber-soft)] px-4 py-3 text-sm text-[var(--accent-amber-soft-fg)]">
+        <span aria-hidden className="mt-0.5 text-base leading-none">!</span>
+        <p>
+          Treat your API tokens like passwords. Don&apos;t share them in public
+          places — right now, you won&apos;t be able to read a key once it
+          leaves this page.
+        </p>
+      </section>
+
+      <Card>
+        <CardHeader
+          title="Create a new API key"
+          description="Name it after the device or browser profile that will use it."
+        />
+        <form onSubmit={create} className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="flex flex-1 min-w-[14rem] flex-col text-sm">
+            <span className="mb-1 text-[var(--text-secondary)]">Name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. My laptop, or Work laptop"
+              className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-inset)] px-3 py-2 text-sm"
+              required
+            />
+          </label>
+          <Button type="submit" disabled={creating || !name}>
+            {creating ? "Creating…" : "+ Create key"}
+          </Button>
+          {error && (
+            <span className="text-sm text-[var(--accent-rose)]">{error}</span>
+          )}
+        </form>
+      </Card>
 
       {justCreated && (
-        <div className="rounded-md border border-amber-400 bg-amber-50 p-4 text-amber-950">
-          <p className="text-sm font-medium">
-            Copy this token now — you won&apos;t see it again.
-          </p>
-          <pre className="mt-2 overflow-x-auto rounded border border-amber-200 bg-white px-3 py-2 text-xs text-gray-900">
-            {justCreated.token}
-          </pre>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(justCreated.token);
-            }}
-            className="mt-2 rounded-md border border-amber-300 bg-white px-3 py-1 text-sm text-amber-900 hover:bg-amber-100"
-          >
-            Copy
-          </button>
-        </div>
+        <section
+          role="alert"
+          className="rounded-[var(--radius-lg)] border-2 border-[var(--accent-amber)] bg-[var(--accent-amber-soft)] p-5 shadow-[var(--elev-2)]"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-[var(--accent-amber-soft-fg)]">
+                Copy this token now — you won&apos;t see it again.
+              </h2>
+              <p className="mt-1 text-sm text-[var(--accent-amber-soft-fg)]">
+                Paste it into the Relist Chrome extension under{" "}
+                <em>{justCreated.name}</em>. This token will not be shown again
+                after you close this message.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/50 bg-[var(--surface-card)] px-3 py-2">
+            <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-[var(--text-primary)]">
+              {justCreated.token}
+            </code>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => copyToken(justCreated.token)}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setJustCreated(null)}
+            >
+              I&apos;ve saved it — close
+            </Button>
+          </div>
+        </section>
       )}
 
-      <div>
-        <h2 className="text-sm font-medium text-gray-600">Existing keys</h2>
-        {initialKeys.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-500">No keys yet.</p>
-        ) : (
-          <ul className="mt-2 divide-y rounded-md border">
+      <Card>
+        <CardHeader
+          title="Your API keys"
+          description={
+            initialKeys.length === 0
+              ? "No keys yet. Create one above to get started."
+              : `${initialKeys.length} ${
+                  initialKeys.length === 1 ? "key" : "keys"
+                } total.`
+          }
+        />
+        {initialKeys.length > 0 && (
+          <ul className="mt-4 divide-y divide-[var(--border-subtle)] rounded-[var(--radius-md)] border border-[var(--border-subtle)]">
             {initialKeys.map((k) => (
-              <li key={k.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <div>
-                  <div className="font-medium">{k.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {k.tokenPrefix}…{" · "}
+              <li
+                key={k.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-[var(--text-primary)]">
+                    {k.name}
+                  </div>
+                  <div className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
+                    <span className="font-mono">{k.tokenPrefix}…</span>
+                    {" · "}
                     created {new Date(k.createdAt).toLocaleDateString()}
-                    {k.lastUsedAt && ` · last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
-                    {k.revokedAt && ` · revoked`}
+                    {k.lastUsedAt &&
+                      ` · last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
                   </div>
                 </div>
-                {k.revokedAt ? (
-                  <button
-                    onClick={() => purge(k.id)}
-                    className="rounded-md border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => revoke(k.id)}
-                    className="rounded-md border px-3 py-1 text-xs"
-                  >
-                    Revoke
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {k.revokedAt ? (
+                    <>
+                      <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+                        Revoked
+                      </span>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => purge(k.id)}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-xs text-[var(--brand-soft-fg)]">
+                        Active
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => revoke(k.id)}
+                      >
+                        Revoke
+                      </Button>
+                    </>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

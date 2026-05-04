@@ -44,6 +44,10 @@ export type InventoryFilters = {
   search?: string | null;
   sort?: "date" | "price" | "brand" | null;
   incompleteOnly?: boolean;
+  /** 1-based page number for pagination. Default: 1. */
+  page?: number;
+  /** Page size. Default: 25. Pass 0 to disable LIMIT (used by backups). */
+  pageSize?: number;
 };
 
 /**
@@ -125,7 +129,14 @@ export function userScope(userId: string) {
         .where(and(eq(expenses.userId, userId), eq(expenses.id, id)))
         .returning({ id: expenses.id }),
 
-    listItems: async ({ status, search, sort, incompleteOnly }: InventoryFilters = {}) => {
+    listItems: async ({
+      status,
+      search,
+      sort,
+      incompleteOnly,
+      page = 1,
+      pageSize = 25,
+    }: InventoryFilters = {}) => {
       const conds: SQL[] = [eq(items.userId, userId)];
       if (status) conds.push(eq(items.status, status));
       if (search) {
@@ -144,43 +155,77 @@ export function userScope(userId: string) {
             ? asc(items.brand)
             : desc(items.createdAt);
 
-      const rows = await db
-        .select({
-          id: items.id,
-          userId: items.userId,
-          name: items.name,
-          brand: items.brand,
-          category: items.category,
-          condition: items.condition,
-          size: items.size,
-          costPrice: items.costPrice,
-          listedPrice: items.listedPrice,
-          soldPrice: items.soldPrice,
-          status: items.status,
-          platform: items.platform,
-          hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
-          description: items.description,
-          sourceType: items.sourceType,
-          sourceLocation: items.sourceLocation,
-          vintedUrl: items.vintedUrl,
-          listedAt: items.listedAt,
-          soldAt: items.soldAt,
-          buyerPaidShipping: items.buyerPaidShipping,
-          shippedAt: items.shippedAt,
-          lastEditedAt: items.lastEditedAt,
-          relistCount: items.relistCount,
-          createdAt: items.createdAt,
-          updatedAt: items.updatedAt,
-          isSample: items.isSample,
-        })
+      const cols = {
+        id: items.id,
+        userId: items.userId,
+        name: items.name,
+        brand: items.brand,
+        category: items.category,
+        condition: items.condition,
+        size: items.size,
+        costPrice: items.costPrice,
+        listedPrice: items.listedPrice,
+        soldPrice: items.soldPrice,
+        status: items.status,
+        platform: items.platform,
+        hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
+        description: items.description,
+        sourceType: items.sourceType,
+        sourceLocation: items.sourceLocation,
+        vintedUrl: items.vintedUrl,
+        listedAt: items.listedAt,
+        soldAt: items.soldAt,
+        buyerPaidShipping: items.buyerPaidShipping,
+        shippedAt: items.shippedAt,
+        lastEditedAt: items.lastEditedAt,
+        relistCount: items.relistCount,
+        createdAt: items.createdAt,
+        updatedAt: items.updatedAt,
+        isSample: items.isSample,
+      };
+
+      // incompleteOnly is a post-filter (multi-column NULL/empty-string check)
+      // — when set we skip SQL pagination and let the page render the slice.
+      if (incompleteOnly) {
+        const all = await db
+          .select(cols)
+          .from(items)
+          .where(and(...conds))
+          .orderBy(orderBy);
+        const filtered = all.filter(
+          (r) => !r.brand || !r.category || !r.size || !r.condition || !r.listedPrice,
+        );
+        return {
+          rows: filtered,
+          total: filtered.length,
+          page: 1,
+          pageSize: filtered.length,
+          pageCount: 1,
+        };
+      }
+
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(items)
+        .where(and(...conds));
+      const total = Number(n ?? 0);
+
+      const safePage = Math.max(1, Math.floor(page));
+      const safeSize = pageSize > 0 ? Math.max(1, Math.floor(pageSize)) : total || 1;
+      const offset = (safePage - 1) * safeSize;
+      const pageCount = Math.max(1, Math.ceil(total / safeSize));
+
+      const query = db
+        .select(cols)
         .from(items)
         .where(and(...conds))
         .orderBy(orderBy);
 
-      if (!incompleteOnly) return rows;
-      return rows.filter(
-        (r) => !r.brand || !r.category || !r.size || !r.condition || !r.listedPrice,
-      );
+      const rows = pageSize > 0
+        ? await query.limit(safeSize).offset(offset)
+        : await query;
+
+      return { rows, total, page: safePage, pageSize: safeSize, pageCount };
     },
 
     countItems: async () => {

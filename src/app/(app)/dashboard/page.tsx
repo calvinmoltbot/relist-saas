@@ -58,12 +58,11 @@ export default async function DashboardPage() {
   const profitDelta = deltaPct(sparks.profit);
   const stockDelta = deltaPct(sparks.listed);
 
-  const topThumbs = await Promise.all(
-    allTime.itemProfits.slice(0, 8).map(async (p) => ({
-      ...p,
-      thumb: await userScope(userId).getItemThumbnail(p.id),
-    })),
+  const topProfit = allTime.itemProfits.slice(0, 8);
+  const hasThumb = await userScope(userId).getItemHasThumbnailMap(
+    topProfit.map((p) => p.id),
   );
+  const topThumbs = topProfit.map((p) => ({ ...p, hasThumbnail: hasThumb.get(p.id) ?? false }));
 
   return (
     <div className="space-y-8">
@@ -174,9 +173,9 @@ export default async function DashboardPage() {
                       <td className="py-2.5 pl-5 pr-3">
                         <Link href={`/inventory/${p.id}`} className="flex items-center gap-3">
                           <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
-                            {p.thumb ? (
+                            {p.hasThumbnail ? (
                               <Image
-                                src={p.thumb}
+                                src={`/api/inventory/thumb/${p.id}`}
                                 alt=""
                                 width={36}
                                 height={36}

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   priceData,
@@ -158,7 +158,7 @@ export function userScope(userId: string) {
           soldPrice: items.soldPrice,
           status: items.status,
           platform: items.platform,
-          thumbnailUrl: items.thumbnailUrl,
+          hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
           description: items.description,
           sourceType: items.sourceType,
           sourceLocation: items.sourceLocation,
@@ -248,6 +248,23 @@ export function userScope(userId: string) {
         .where(and(eq(items.userId, userId), eq(items.id, id)))
         .limit(1);
       return row?.thumbnailUrl ?? null;
+    },
+
+    /** Return a Map<id, hasThumbnail> in one round-trip — cheap because we
+     *  only select the boolean, not the bytes. Use this any time you need
+     *  to know which of N items have thumbnails (e.g. dashboard, lists). */
+    getItemHasThumbnailMap: async (ids: string[]) => {
+      const out = new Map<string, boolean>();
+      if (ids.length === 0) return out;
+      const rows = await db
+        .select({
+          id: items.id,
+          hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
+        })
+        .from(items)
+        .where(and(eq(items.userId, userId), inArray(items.id, ids)));
+      for (const r of rows) out.set(r.id, !!r.hasThumbnail);
+      return out;
     },
 
     insertTransaction: (data: Omit<NewTransaction, "userId">) =>

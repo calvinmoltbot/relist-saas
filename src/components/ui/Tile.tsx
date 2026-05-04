@@ -62,7 +62,7 @@ export function Tile({
         <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
           {label}
         </div>
-        <div className="mt-1 font-display text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+        <div className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)] md:text-3xl">
           {value}
         </div>
         {sub && (

@@ -3,8 +3,23 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { userScope } from "@/lib/db/scoped";
 import { FirstRunNudge } from "@/components/FirstRunNudge";
+import {
+  ButtonLink,
+  Card,
+  PageHeader,
+  StatusPill,
+  ViewToggle,
+} from "@/components/ui";
+import { StatusTransitionButton } from "./StatusTransitionButton";
 
-const STATUSES = ["all", "sourced", "listed", "sold", "shipped"] as const;
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "All statuses" },
+  { value: "sourced", label: "Sourced" },
+  { value: "listed", label: "Listed" },
+  { value: "sold", label: "Sold" },
+  { value: "shipped", label: "Shipped" },
+];
+
 const PAGE_SIZE = 25;
 
 function gbp(n: string | null) {
@@ -21,6 +36,7 @@ export default async function InventoryPage({
     sort?: string;
     incomplete?: string;
     page?: string;
+    view?: string;
   }>;
 }) {
   const { userId } = await auth();
@@ -28,12 +44,11 @@ export default async function InventoryPage({
 
   const sp = await searchParams;
 
-  // Default filter: listed (active inventory). Empty string is treated the
-  // same as "listed" — only an explicit ?status=all bypasses to all.
   const statusParam = sp.status ?? "listed";
   const status = statusParam === "all" ? null : statusParam;
   const sort = sp.sort === "price" || sp.sort === "brand" ? sp.sort : "date";
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const view: "table" | "grid" = sp.view === "grid" ? "grid" : "table";
 
   const scope = userScope(userId);
   const [result, totalCount] = await Promise.all([
@@ -57,181 +72,354 @@ export default async function InventoryPage({
   const showStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const showEnd = Math.min(page * PAGE_SIZE, total);
 
-  // Build a query-string for prev/next that preserves filters
   function pageHref(n: number): string {
     const params = new URLSearchParams();
     if (statusParam !== "listed") params.set("status", statusParam);
     if (sp.search) params.set("search", sp.search);
     if (sp.sort && sp.sort !== "date") params.set("sort", sp.sort);
     if (sp.incomplete === "1") params.set("incomplete", "1");
+    if (view === "grid") params.set("view", "grid");
     if (n > 1) params.set("page", String(n));
     const qs = params.toString();
     return qs ? `/inventory?${qs}` : "/inventory";
   }
 
+  const subtitle =
+    total === 0
+      ? "0 items"
+      : `Showing ${showStart}–${showEnd} of ${total}${
+          totalCount > total ? ` · ${totalCount} total in account` : ""
+        }`;
+
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Inventory</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {total === 0
-              ? "0 items"
-              : `Showing ${showStart}–${showEnd} of ${total}`}
-            {totalCount > total && (
-              <span className="text-gray-400"> · {totalCount} total in account</span>
-            )}
-          </p>
-        </div>
-        <Link
-          href="/inventory/new"
-          className="rounded-md bg-black px-4 py-2 text-sm text-white"
-        >
-          Add item
-        </Link>
-      </header>
+      <PageHeader
+        title="Inventory"
+        subtitle={subtitle}
+        actions={
+          <ButtonLink href="/inventory/new" variant="primary" size="sm">
+            + Add item
+          </ButtonLink>
+        }
+      />
 
-      <form className="flex flex-wrap gap-2 text-sm">
-        <input
-          type="search"
-          name="search"
-          defaultValue={sp.search ?? ""}
-          placeholder="Search name, brand, category"
-          className="min-w-[200px] flex-1 rounded-md border px-3 py-1.5"
-        />
-        <select
-          name="status"
-          defaultValue={statusParam}
-          className="rounded-md border px-2 py-1.5"
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select
-          name="sort"
-          defaultValue={sort}
-          className="rounded-md border px-2 py-1.5"
-        >
-          <option value="date">Newest</option>
-          <option value="price">Price</option>
-          <option value="brand">Brand</option>
-        </select>
-        <label className="flex items-center gap-1.5 px-2 text-xs text-gray-600">
+      <Card padded className="p-4">
+        <form className="flex flex-wrap items-center gap-2 text-sm">
           <input
-            type="checkbox"
-            name="incomplete"
-            value="1"
-            defaultChecked={sp.incomplete === "1"}
+            type="search"
+            name="search"
+            defaultValue={sp.search ?? ""}
+            placeholder="Search name, brand, SKU…"
+            className="min-w-[220px] flex-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
           />
-          Incomplete only
-        </label>
-        <button className="rounded-md border px-3 py-1.5">Apply</button>
-      </form>
+          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <span className="hidden sm:inline">Status</span>
+            <select
+              name="status"
+              defaultValue={statusParam}
+              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--brand)] focus:outline-none"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <span className="hidden sm:inline">Sort by</span>
+            <select
+              name="sort"
+              defaultValue={sort}
+              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--brand)] focus:outline-none"
+            >
+              <option value="date">Newest</option>
+              <option value="price">Price</option>
+              <option value="brand">Brand</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 px-1 text-xs text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              name="incomplete"
+              value="1"
+              defaultChecked={sp.incomplete === "1"}
+              className="h-3.5 w-3.5 rounded border-[var(--border-default)] text-[var(--brand)]"
+            />
+            Incomplete only
+          </label>
+          {/* preserve view in form submissions */}
+          {view === "grid" && <input type="hidden" name="view" value="grid" />}
+          <button className="ml-auto rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)]">
+            Apply
+          </button>
+        </form>
+      </Card>
+
+      <div className="flex items-center justify-end">
+        <ViewToggle
+          param="view"
+          value={view}
+          ariaLabel="Inventory layout"
+          options={[
+            { value: "table", label: "Table", icon: <TableIcon /> },
+            { value: "grid", label: "Grid", icon: <GridIcon /> },
+          ]}
+        />
+      </div>
 
       {rows.length === 0 ? (
         isFirstRun ? (
           <FirstRunNudge variant="panel" />
         ) : (
-          <p className="rounded-md border border-dashed p-8 text-center text-sm text-gray-500">
-            {filtersApplied
-              ? "No items match these filters."
-              : "No items in this view."}
-          </p>
+          <Card>
+            <p className="py-10 text-center text-sm text-[var(--text-muted)]">
+              {filtersApplied
+                ? "No items match these filters. Try adjusting the search or status."
+                : "No items in this view."}
+            </p>
+          </Card>
         )
+      ) : view === "grid" ? (
+        <GridView rows={rows} />
       ) : (
-        <>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase text-gray-500">
-                <th className="w-12 py-2 pr-2"></th>
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Brand</th>
-                <th className="py-2 pr-4">Size</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4 text-right">Cost</th>
-                <th className="py-2 pr-4 text-right">Listed</th>
-                <th className="py-2 pr-4 text-right">Sold</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b hover:bg-gray-50">
-                  <td className="py-2 pr-2">
-                    <Link
-                      href={`/inventory/${r.id}`}
-                      aria-label={`View ${r.name}`}
-                      className="block"
-                    >
-                      {r.hasThumbnail ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={`/api/inventory/thumb/${r.id}`}
-                          alt=""
-                          loading="lazy"
-                          className="h-10 w-10 rounded object-cover bg-gray-100"
-                        />
-                      ) : (
-                        <div
-                          aria-hidden
-                          className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400"
-                        >
-                          no img
-                        </div>
-                      )}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <Link href={`/inventory/${r.id}`} className="underline">
-                      {r.name}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4">{r.brand ?? "—"}</td>
-                  <td className="py-2 pr-4">{r.size ?? "—"}</td>
-                  <td className="py-2 pr-4">
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 text-right">{gbp(r.costPrice)}</td>
-                  <td className="py-2 pr-4 text-right">{gbp(r.listedPrice)}</td>
-                  <td className="py-2 pr-4 text-right">{gbp(r.soldPrice)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <TableView rows={rows} />
+      )}
 
-          {pageCount > 1 && (
-            <nav className="flex items-center justify-between gap-3 pt-2 text-sm">
-              {page > 1 ? (
-                <Link
-                  href={pageHref(page - 1)}
-                  className="rounded-md border px-3 py-1.5"
-                >
-                  ← Previous
-                </Link>
-              ) : (
-                <span className="text-gray-400">← Previous</span>
-              )}
-              <span className="text-gray-600">
-                Page {page} of {pageCount}
-              </span>
-              {page < pageCount ? (
-                <Link
-                  href={pageHref(page + 1)}
-                  className="rounded-md border px-3 py-1.5"
-                >
-                  Next →
-                </Link>
-              ) : (
-                <span className="text-gray-400">Next →</span>
-              )}
-            </nav>
+      {rows.length > 0 && pageCount > 1 && (
+        <nav className="flex items-center justify-between gap-3 pt-2 text-sm">
+          {page > 1 ? (
+            <Link
+              href={pageHref(page - 1)}
+              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 py-1.5 hover:bg-[var(--surface-muted)]"
+            >
+              ← Previous
+            </Link>
+          ) : (
+            <span className="text-[var(--text-muted)]">← Previous</span>
           )}
-        </>
+          <span className="text-[var(--text-secondary)]">
+            Page {page} of {pageCount}
+          </span>
+          {page < pageCount ? (
+            <Link
+              href={pageHref(page + 1)}
+              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 py-1.5 hover:bg-[var(--surface-muted)]"
+            >
+              Next →
+            </Link>
+          ) : (
+            <span className="text-[var(--text-muted)]">Next →</span>
+          )}
+        </nav>
       )}
     </div>
+  );
+}
+
+type Row = {
+  id: string;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  size: string | null;
+  status: string;
+  costPrice: string | null;
+  listedPrice: string | null;
+  soldPrice: string | null;
+  hasThumbnail: boolean;
+};
+
+function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
+  const px = `${size}px`;
+  if (row.hasThumbnail) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/api/inventory/thumb/${row.id}`}
+        alt=""
+        loading="lazy"
+        style={{ width: px, height: px }}
+        className="rounded-[var(--radius-sm)] bg-[var(--surface-muted)] object-cover"
+      />
+    );
+  }
+  return (
+    <div
+      aria-hidden
+      style={{ width: px, height: px }}
+      className="flex items-center justify-center rounded-[var(--radius-sm)] bg-[var(--surface-muted)] text-[10px] text-[var(--text-muted)]"
+    >
+      no img
+    </div>
+  );
+}
+
+function TableView({ rows }: { rows: Row[] }) {
+  return (
+    <Card padded={false} className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)]/40 text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              <th className="w-16 py-3 pl-4 pr-2 font-medium">Thumbnail</th>
+              <th className="py-3 pr-4 font-medium">Item</th>
+              <th className="py-3 pr-4 font-medium">Brand</th>
+              <th className="py-3 pr-4 font-medium">Size</th>
+              <th className="py-3 pr-4 font-medium">Status</th>
+              <th className="py-3 pr-4 text-right font-medium">Cost</th>
+              <th className="py-3 pr-4 text-right font-medium">Listed</th>
+              <th className="py-3 pr-4 text-right font-medium">Sold</th>
+              <th className="py-3 pr-4 font-medium" aria-label="Actions"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.id}
+                className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--surface-muted)]/40"
+              >
+                <td className="py-3 pl-4 pr-2">
+                  <Link
+                    href={`/inventory/${r.id}`}
+                    aria-label={`View ${r.name}`}
+                    className="block"
+                  >
+                    <Thumb row={r} />
+                  </Link>
+                </td>
+                <td className="py-3 pr-4">
+                  <Link
+                    href={`/inventory/${r.id}`}
+                    className="font-medium text-[var(--text-primary)] hover:underline"
+                  >
+                    {r.name}
+                  </Link>
+                  {r.category && (
+                    <div className="mt-0.5 text-xs text-[var(--text-muted)]">
+                      {r.category}
+                    </div>
+                  )}
+                </td>
+                <td className="py-3 pr-4 text-[var(--text-secondary)]">
+                  {r.brand ?? "—"}
+                </td>
+                <td className="py-3 pr-4 text-[var(--text-secondary)]">
+                  {r.size ?? "—"}
+                </td>
+                <td className="py-3 pr-4">
+                  <StatusPill status={r.status} />
+                </td>
+                <td className="py-3 pr-4 text-right tabular-nums text-[var(--text-secondary)]">
+                  {gbp(r.costPrice)}
+                </td>
+                <td className="py-3 pr-4 text-right tabular-nums text-[var(--text-primary)]">
+                  {gbp(r.listedPrice)}
+                </td>
+                <td className="py-3 pr-4 text-right tabular-nums text-[var(--text-secondary)]">
+                  {gbp(r.soldPrice)}
+                </td>
+                <td className="py-3 pr-4">
+                  <StatusTransitionButton itemId={r.id} status={r.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function GridView({ rows }: { rows: Row[] }) {
+  return (
+    <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {rows.map((r) => (
+        <li key={r.id}>
+          <Card padded={false} className="overflow-hidden">
+            <Link
+              href={`/inventory/${r.id}`}
+              aria-label={`View ${r.name}`}
+              className="block"
+            >
+              <div className="aspect-square w-full overflow-hidden bg-[var(--surface-muted)]">
+                {r.hasThumbnail ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/inventory/thumb/${r.id}`}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-[var(--text-muted)]">
+                    no img
+                  </div>
+                )}
+              </div>
+            </Link>
+            <div className="space-y-2 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <Link
+                  href={`/inventory/${r.id}`}
+                  className="line-clamp-2 text-sm font-medium text-[var(--text-primary)] hover:underline"
+                >
+                  {r.name}
+                </Link>
+                <StatusPill status={r.status} />
+              </div>
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                <span className="truncate">
+                  {r.brand ?? "—"}
+                  {r.size ? ` · ${r.size}` : ""}
+                </span>
+                <span className="tabular-nums text-[var(--text-primary)]">
+                  {gbp(r.listedPrice)}
+                </span>
+              </div>
+              <div className="flex justify-end">
+                <StatusTransitionButton itemId={r.id} status={r.status} />
+              </div>
+            </div>
+          </Card>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TableIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M2 7h12M2 11h12" />
+    </svg>
+  );
+}
+
+function GridIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <rect x="2" y="2" width="5" height="5" rx="1" />
+      <rect x="9" y="2" width="5" height="5" rx="1" />
+      <rect x="2" y="9" width="5" height="5" rx="1" />
+      <rect x="9" y="9" width="5" height="5" rx="1" />
+    </svg>
   );
 }

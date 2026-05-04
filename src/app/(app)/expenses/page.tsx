@@ -39,7 +39,7 @@ export default async function ExpensesPage({
         <div>
           <h1 className="text-2xl font-semibold">Expenses</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Business costs: packaging, supplies, fees.
+            Business costs: packaging and shipping supplies.
           </p>
         </div>
         <form className="flex gap-2 text-sm">

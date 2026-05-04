@@ -80,7 +80,6 @@ export async function computeBestsellers(userId: string, range: DateRange) {
         .select({
           itemId: transactions.itemId,
           shippingCost: transactions.shippingCost,
-          platformFees: transactions.platformFees,
         })
         .from(transactions)
         .where(
@@ -98,8 +97,7 @@ export async function computeBestsellers(userId: string, range: DateRange) {
     const soldPrice = num(r.soldPrice);
     const tx = txByItem.get(r.id);
     const shipping = num(tx?.shippingCost);
-    const fees = num(tx?.platformFees);
-    const netProfit = soldPrice - cost - shipping - fees;
+    const netProfit = soldPrice - cost - shipping;
     const marginPct = soldPrice > 0 ? (netProfit / soldPrice) * 100 : 0;
     const days = Math.max(
       0,

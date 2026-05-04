@@ -67,10 +67,9 @@ export default async function ProfitPage({
   const costSlices: CostSlice[] = [
     { name: "Cost of goods", value: s.cost, color: "var(--brand)" },
     { name: "Shipping", value: s.shipping, color: "var(--accent-amber)" },
-    { name: "Platform fees", value: s.fees, color: "var(--accent-violet)" },
     { name: "Other expenses", value: s.totalExpenses, color: "var(--accent-rose)" },
   ].filter((s) => s.value > 0);
-  const totalCosts = s.cost + s.shipping + s.fees + s.totalExpenses;
+  const totalCosts = s.cost + s.shipping + s.totalExpenses;
 
   return (
     <div className="space-y-8">
@@ -149,7 +148,7 @@ export default async function ProfitPage({
         <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
           What went out
         </h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           <Tile
             label="Cost of goods"
             value={gbp(s.cost)}
@@ -161,12 +160,6 @@ export default async function ProfitPage({
             value={gbp(s.shipping)}
             tone="amber"
             icon={<TruckIcon />}
-          />
-          <Tile
-            label="Platform fees"
-            value={gbp(s.fees)}
-            tone="violet"
-            icon={<PercentIcon />}
           />
           <Tile
             label="Other expenses"
@@ -241,7 +234,6 @@ export default async function ProfitPage({
             <SummaryRow label="Avg margin" value={`${s.avgMargin}%`} />
             <SummaryRow label="Cost of goods" value={gbp(s.cost)} />
             <SummaryRow label="Shipping" value={gbp(s.shipping)} />
-            <SummaryRow label="Platform fees" value={gbp(s.fees)} />
             <SummaryRow label="Other expenses" value={gbp(s.totalExpenses)} />
           </dl>
         </Card>
@@ -502,13 +494,6 @@ function TruckIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
       <path d="M2 5h8v8H2zM10 8h4l2 2v3h-6zM5 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM13 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function PercentIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <path d="M4 14L14 4M5.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12.5 14a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

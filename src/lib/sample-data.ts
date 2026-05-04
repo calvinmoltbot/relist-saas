@@ -16,7 +16,6 @@ type SampleItem = {
   daysAgoListed?: number;
   daysAgoSold?: number;
   shippingCost?: string;
-  platformFees?: string;
 };
 
 const SAMPLES: SampleItem[] = [
@@ -34,7 +33,6 @@ const SAMPLES: SampleItem[] = [
     daysAgoListed: 28,
     daysAgoSold: 4,
     shippingCost: "3.50",
-    platformFees: "2.10",
   },
   {
     name: "Zara Wool Coat",
@@ -62,7 +60,6 @@ const SAMPLES: SampleItem[] = [
     daysAgoListed: 58,
     daysAgoSold: 14,
     shippingCost: "3.20",
-    platformFees: "1.25",
   },
   {
     name: "Uniqlo Heattech Crew",
@@ -113,7 +110,6 @@ const SAMPLES: SampleItem[] = [
     daysAgoListed: 48,
     daysAgoSold: 7,
     shippingCost: "3.20",
-    platformFees: "1.00",
   },
   {
     name: "Mango Trench Coat",
@@ -215,9 +211,8 @@ export async function seedSampleData(userId: string): Promise<{
     if (s.status === "sold" && s.soldPrice && soldAt) {
       const gross = parseFloat(s.soldPrice);
       const ship = parseFloat(s.shippingCost ?? "0");
-      const fees = parseFloat(s.platformFees ?? "0");
       const cost = parseFloat(s.costPrice);
-      const profit = (gross - ship - fees - cost).toFixed(2);
+      const profit = (gross - ship - cost).toFixed(2);
 
       await db.insert(transactions).values({
         userId,
@@ -225,7 +220,7 @@ export async function seedSampleData(userId: string): Promise<{
         transactionType: "sell",
         grossPrice: s.soldPrice,
         shippingCost: s.shippingCost ?? "0",
-        platformFees: s.platformFees ?? "0",
+        platformFees: "0",
         profit,
         completedAt: soldAt,
         isSample: true,

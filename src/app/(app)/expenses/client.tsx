@@ -15,7 +15,6 @@ const CATEGORIES = [
   "shipping_supplies",
   "packaging",
   "promotion",
-  "platform_fee",
   "other",
 ];
 

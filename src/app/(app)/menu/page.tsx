@@ -18,7 +18,7 @@ const SECTIONS: Array<{
   {
     title: "Operations",
     items: [
-      { href: "/expenses", label: "Expenses", description: "Packaging, shipping supplies, fees." },
+      { href: "/expenses", label: "Expenses", description: "Packaging and shipping supplies." },
     ],
   },
   {

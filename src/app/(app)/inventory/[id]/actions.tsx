@@ -31,15 +31,13 @@ export function ItemActions({
   const [sell, setSell] = useState({
     soldPrice: soldPrice ?? listedPrice ?? "",
     shippingCost: "0",
-    platformFees: "0",
   });
 
   const estimatedProfit = useMemo(() => {
     const gross = gbpNum(sell.soldPrice);
     const ship = gbpNum(sell.shippingCost);
-    const fees = gbpNum(sell.platformFees);
     const cost = gbpNum(costPrice);
-    return gross - ship - fees - cost;
+    return gross - ship - cost;
   }, [sell, costPrice]);
 
   async function transition(next: Status) {
@@ -56,7 +54,6 @@ export function ItemActions({
       status: "sold",
       soldPrice: sell.soldPrice || null,
       shippingCost: sell.shippingCost || "0",
-      platformFees: sell.platformFees || "0",
     });
     setShowSell(false);
   }
@@ -133,7 +130,7 @@ export function ItemActions({
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Sold price (£)">
               <input
                 type="number"
@@ -153,17 +150,6 @@ export function ItemActions({
                 value={sell.shippingCost}
                 onChange={(e) =>
                   setSell({ ...sell, shippingCost: e.target.value })
-                }
-                className="w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30"
-              />
-            </Field>
-            <Field label="Platform fees (£)">
-              <input
-                type="number"
-                step="0.01"
-                value={sell.platformFees}
-                onChange={(e) =>
-                  setSell({ ...sell, platformFees: e.target.value })
                 }
                 className="w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30"
               />

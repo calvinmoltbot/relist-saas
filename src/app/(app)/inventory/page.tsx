@@ -257,8 +257,8 @@ function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
 
 function TableView({ rows }: { rows: Row[] }) {
   return (
-    <Card padded={false} className="overflow-hidden">
-      <div className="overflow-x-auto">
+    <Card padded={false} className="overflow-visible">
+      <div>
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)]/40 text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
@@ -320,7 +320,11 @@ function TableView({ rows }: { rows: Row[] }) {
                   {gbp(r.soldPrice)}
                 </td>
                 <td className="py-3 pr-4">
-                  <StatusTransitionButton itemId={r.id} status={r.status} />
+                  <StatusTransitionButton
+                    itemId={r.id}
+                    status={r.status}
+                    listedPrice={r.listedPrice}
+                  />
                 </td>
               </tr>
             ))}
@@ -378,7 +382,11 @@ function GridView({ rows }: { rows: Row[] }) {
                 </span>
               </div>
               <div className="flex justify-end">
-                <StatusTransitionButton itemId={r.id} status={r.status} />
+                <StatusTransitionButton
+                    itemId={r.id}
+                    status={r.status}
+                    listedPrice={r.listedPrice}
+                  />
               </div>
             </div>
           </Card>

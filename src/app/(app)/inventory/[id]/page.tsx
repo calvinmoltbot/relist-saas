@@ -163,7 +163,6 @@ export default async function ItemDetail({
                   <th className="px-5 py-2.5 font-medium">Type</th>
                   <th className="px-3 py-2.5 font-medium">Gross</th>
                   <th className="px-3 py-2.5 font-medium">Shipping</th>
-                  <th className="px-3 py-2.5 font-medium">Fees</th>
                   <th className="px-3 py-2.5 font-medium">Profit</th>
                   <th className="px-5 py-2.5 font-medium">Completed</th>
                 </tr>
@@ -191,9 +190,6 @@ export default async function ItemDetail({
                       </td>
                       <td className="px-3 py-3 text-[var(--text-secondary)]">
                         {gbp(t.shippingCost)}
-                      </td>
-                      <td className="px-3 py-3 text-[var(--text-secondary)]">
-                        {gbp(t.platformFees)}
                       </td>
                       <td
                         className={`px-3 py-3 font-medium ${

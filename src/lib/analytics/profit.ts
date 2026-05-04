@@ -60,7 +60,6 @@ export async function computeProfit(userId: string, range: DateRange) {
   let revenue = 0;
   let cost = 0;
   let shipping = 0;
-  let fees = 0;
 
   const byCategory = new Map<string, { revenue: number; profit: number; count: number }>();
   const bySource = new Map<string, { revenue: number; profit: number; count: number }>();
@@ -80,13 +79,11 @@ export async function computeProfit(userId: string, range: DateRange) {
     const s = num(it.soldPrice);
     const tx = txByItem.get(it.id);
     const sh = num(tx?.shippingCost ?? null);
-    const fe = num(tx?.platformFees ?? null);
-    const net = s - c - sh - fe;
+    const net = s - c - sh;
 
     revenue += s;
     cost += c;
     shipping += sh;
-    fees += fe;
 
     const cat = it.category || "uncategorised";
     const src = it.sourceType || "unknown";
@@ -129,7 +126,7 @@ export async function computeProfit(userId: string, range: DateRange) {
   }
 
   const grossProfit = revenue - cost;
-  const netProfit = grossProfit - shipping - fees - totalExpenses;
+  const netProfit = grossProfit - shipping - totalExpenses;
 
   // Always-current stock value (not date-filtered)
   let stockCost = 0;
@@ -151,7 +148,6 @@ export async function computeProfit(userId: string, range: DateRange) {
       grossProfit: round(grossProfit),
       netProfit: round(netProfit),
       shipping: round(shipping),
-      fees: round(fees),
       totalExpenses: round(totalExpenses),
       itemsSold: sold.length,
       itemsListed: listed.length,

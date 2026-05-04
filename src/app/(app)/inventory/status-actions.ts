@@ -12,7 +12,7 @@ type Status = "sourced" | "listed" | "sold" | "shipped";
  * list behaves identically to changing status on the detail page.
  *
  * Note: we deliberately don't auto-create a sell transaction here. A "Mark as
- * sold" tap from the list has no shipping/fees context — the detail page is
+ * sold" tap from the list has no shipping context — the detail page is
  * still the right place for that flow. The list is for low-friction
  * sourced→listed and sold→shipped transitions.
  */

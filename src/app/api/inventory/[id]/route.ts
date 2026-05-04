@@ -36,7 +36,6 @@ const PatchSchema = z.object({
   thumbnailUrl: z.string().nullish(),
   status: z.enum(["sourced", "listed", "sold", "shipped"]).optional(),
   shippingCost: numStr, // for the auto-created sell tx
-  platformFees: numStr, // for the auto-created sell tx
 });
 
 export async function GET(
@@ -78,7 +77,7 @@ export async function PATCH(
   const now = new Date();
   const updates: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) {
-    if (k === "shippingCost" || k === "platformFees") continue;
+    if (k === "shippingCost") continue;
     if (v !== undefined) updates[k] = v;
   }
 
@@ -95,10 +94,9 @@ export async function PATCH(
   if (data.status === "sold" && existing.status !== "sold") {
     const gross = data.soldPrice ?? updated.soldPrice ?? updated.listedPrice ?? "0";
     const shipping = data.shippingCost ?? "0";
-    const fees = data.platformFees ?? "0";
     const cost = updated.costPrice ?? "0";
     const profit = (
-      Number(gross) - Number(cost) - Number(shipping) - Number(fees)
+      Number(gross) - Number(cost) - Number(shipping)
     ).toFixed(2);
 
     await scope.insertTransaction({
@@ -106,7 +104,7 @@ export async function PATCH(
       transactionType: "sell",
       grossPrice: String(gross),
       shippingCost: String(shipping),
-      platformFees: String(fees),
+      platformFees: "0",
       profit,
       completedAt: now,
     });

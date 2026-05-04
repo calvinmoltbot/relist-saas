@@ -12,7 +12,6 @@ export type ProfitSeriesPoint = {
   t: number;
   revenue: number;
   cost: number;
-  fees: number;
   shipping: number;
   expenses: number;
   netProfit: number;
@@ -74,7 +73,6 @@ export async function computeProfitSeries(
       t: d.getTime(),
       revenue: 0,
       cost: 0,
-      fees: 0,
       shipping: 0,
       expenses: 0,
       netProfit: 0,
@@ -100,14 +98,13 @@ export async function computeProfitSeries(
     itemBy[it.id] = { idx: i, cost: c, sold: s };
   }
 
-  // Transactions for fees / shipping
+  // Transactions for shipping
   const itemIds = Object.keys(itemBy);
   if (itemIds.length) {
     const txns = await db
       .select({
         itemId: transactions.itemId,
         shippingCost: transactions.shippingCost,
-        platformFees: transactions.platformFees,
       })
       .from(transactions)
       .where(
@@ -119,7 +116,6 @@ export async function computeProfitSeries(
     for (const t of txns) {
       const ref = itemBy[t.itemId];
       if (!ref) continue;
-      points[ref.idx].fees += num(t.platformFees);
       points[ref.idx].shipping += num(t.shippingCost);
     }
   }
@@ -137,7 +133,7 @@ export async function computeProfitSeries(
   }
 
   for (const p of points) {
-    p.netProfit = p.revenue - p.cost - p.fees - p.shipping - p.expenses;
+    p.netProfit = p.revenue - p.cost - p.shipping - p.expenses;
   }
 
   return points;

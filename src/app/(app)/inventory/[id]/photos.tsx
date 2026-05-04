@@ -86,9 +86,9 @@ export function ItemPhotos({
   }
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-[var(--text-secondary)]">
+        <h2 className="text-xs font-medium text-[var(--text-secondary)]">
           Photos
           {photos.length > 0 && (
             <span className="ml-1 text-[var(--text-muted)]">
@@ -116,19 +116,19 @@ export function ItemPhotos({
       )}
 
       {photos.length === 0 ? (
-        <div className="flex aspect-square w-full items-center justify-center rounded-[var(--radius-lg)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-inset)] text-sm text-[var(--text-muted)]">
+        <div className="flex h-[340px] w-full items-center justify-center rounded-[var(--radius-lg)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-inset)] text-sm text-[var(--text-muted)]">
           {canAdd
             ? "No photos yet — add up to 10 (resized to 1200px)."
             : "No photos."}
         </div>
       ) : (
         <>
-          <div className="relative aspect-square w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
+          <div className="relative h-[340px] w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={active}
               alt={`Photo ${activeIndex + 1}`}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
             <button
               type="button"
@@ -142,7 +142,7 @@ export function ItemPhotos({
           </div>
 
           {photos.length > 1 && (
-            <div className="grid grid-cols-5 gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {photos.map((src, i) => (
                 <button
                   key={i}
@@ -150,7 +150,7 @@ export function ItemPhotos({
                   onClick={() => setActiveIndex(i)}
                   aria-label={`Show photo ${i + 1}`}
                   aria-current={i === activeIndex}
-                  className={`relative aspect-square overflow-hidden rounded-[var(--radius-md)] border bg-[var(--surface-inset)] transition ${
+                  className={`relative h-14 w-14 flex-none overflow-hidden rounded-[var(--radius-md)] border bg-[var(--surface-inset)] transition ${
                     i === activeIndex
                       ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
                       : "border-[var(--border-subtle)] hover:border-[var(--border-default)]"

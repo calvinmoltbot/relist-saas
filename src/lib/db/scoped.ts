@@ -295,6 +295,19 @@ export function userScope(userId: string) {
       return row?.thumbnailUrl ?? null;
     },
 
+    /** Return a Map<id, name> in one round-trip. Used by analytics views
+     *  that compute aggregates by id but want to render a human label. */
+    getItemNamesByIds: async (ids: string[]) => {
+      const out = new Map<string, string>();
+      if (ids.length === 0) return out;
+      const rows = await db
+        .select({ id: items.id, name: items.name })
+        .from(items)
+        .where(and(eq(items.userId, userId), inArray(items.id, ids)));
+      for (const r of rows) out.set(r.id, r.name);
+      return out;
+    },
+
     /** Return a Map<id, hasThumbnail> in one round-trip — cheap because we
      *  only select the boolean, not the bytes. Use this any time you need
      *  to know which of N items have thumbnails (e.g. dashboard, lists). */

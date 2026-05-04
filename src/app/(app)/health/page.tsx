@@ -4,48 +4,124 @@ import { redirect } from "next/navigation";
 import { computeHealth } from "@/lib/analytics/health";
 import { userScope } from "@/lib/db/scoped";
 import { FirstRunNudge } from "@/components/FirstRunNudge";
+import { Card, CardHeader, PageHeader, Tile } from "@/components/ui";
+import { CadenceChart } from "./CadenceChart";
 
-const gbp = (n: number) => `£${n.toFixed(0)}`;
+const gbp = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
 
-const BUCKETS: Array<{ key: "0-3" | "4-7" | "8-14" | "15-21" | "22+"; label: string; color: string }> = [
-  { key: "0-3", label: "Just listed", color: "bg-emerald-500" },
-  { key: "4-7", label: "This week", color: "bg-lime-500" },
-  { key: "8-14", label: "2 weeks", color: "bg-amber-500" },
-  { key: "15-21", label: "Over 2 weeks", color: "bg-orange-500" },
-  { key: "22+", label: "Really stale", color: "bg-red-500" },
+type AgingKey = "0-3" | "4-7" | "8-14" | "15-21" | "22+";
+
+const BUCKETS: Array<{
+  key: AgingKey;
+  label: string;
+  bg: string;
+  dot: string;
+  text: string;
+}> = [
+  {
+    key: "0-3",
+    label: "Just listed",
+    bg: "bg-[var(--accent-emerald)]",
+    dot: "bg-[var(--accent-emerald)]",
+    text: "text-[var(--accent-emerald-soft-fg)]",
+  },
+  {
+    key: "4-7",
+    label: "This week",
+    bg: "bg-lime-500",
+    dot: "bg-lime-500",
+    text: "text-lime-800",
+  },
+  {
+    key: "8-14",
+    label: "2 weeks",
+    bg: "bg-[var(--accent-amber)]",
+    dot: "bg-[var(--accent-amber)]",
+    text: "text-[var(--accent-amber-soft-fg)]",
+  },
+  {
+    key: "15-21",
+    label: "Over 2 weeks",
+    bg: "bg-orange-500",
+    dot: "bg-orange-500",
+    text: "text-orange-800",
+  },
+  {
+    key: "22+",
+    label: "Really stale",
+    bg: "bg-[var(--accent-rose)]",
+    dot: "bg-[var(--accent-rose)]",
+    text: "text-[var(--accent-rose-soft-fg)]",
+  },
 ];
 
-const PACE_BAND_LABEL: Record<"green" | "amber" | "red", string> = {
+const PACE_TONE: Record<"green" | "amber" | "red", "emerald" | "amber" | "rose"> = {
+  green: "emerald",
+  amber: "amber",
+  red: "rose",
+};
+
+const PACE_LABEL: Record<"green" | "amber" | "red", string> = {
   green: "On pace",
   amber: "Slipping",
   red: "Behind",
 };
 
-const PACE_BAND_TONE: Record<"green" | "amber" | "red", string> = {
-  green: "text-emerald-700 bg-emerald-50",
-  amber: "text-amber-700 bg-amber-50",
-  red: "text-red-700 bg-red-50",
-};
+const HEALTH_TONE = (
+  band: "good" | "watch" | "bad",
+): "emerald" | "amber" | "rose" =>
+  band === "good" ? "emerald" : band === "watch" ? "amber" : "rose";
+
+function scoreBand(score: number): "good" | "watch" | "bad" {
+  if (score >= 80) return "good";
+  if (score >= 50) return "watch";
+  return "bad";
+}
+
+function dayBucket(days: number): AgingKey {
+  if (days <= 3) return "0-3";
+  if (days <= 7) return "4-7";
+  if (days <= 14) return "8-14";
+  if (days <= 21) return "15-21";
+  return "22+";
+}
 
 export default async function HealthPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
+  const scope = userScope(userId);
   const [h, itemCount] = await Promise.all([
     computeHealth(userId),
-    userScope(userId).countItems(),
+    scope.countItems(),
   ]);
-  const totalAging = Object.values(h.aging.buckets).reduce((a, b) => a + b, 0);
+
   const isFirstRun = itemCount === 0;
+  const totalAging = Object.values(h.aging.buckets).reduce((a, b) => a + b, 0);
+
+  // Enrich biggestImpact rows with item names (one round-trip).
+  const impactIds = h.completeness.biggestImpact.map((b) => b.itemId);
+  const nameMap = await scope.getItemNamesByIds(impactIds);
+
+  const paceTone = PACE_TONE[h.cadence.paceBand];
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-semibold">Inventory health</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          How fresh, complete and well-paced your listings are.
-        </p>
-      </header>
+      <PageHeader
+        title="Inventory health"
+        subtitle="A weekly pulse on the quality, freshness and value of your live stock."
+        actions={
+          <span className="text-xs text-[var(--text-muted)]">
+            Refresh data ·{" "}
+            {new Date().toLocaleString("en-GB", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        }
+      />
 
       {isFirstRun && (
         <FirstRunNudge
@@ -55,64 +131,78 @@ export default async function HealthPage() {
       )}
 
       {/* Headline tiles */}
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Tile
           label="Active listings"
           value={String(h.aging.totalUnsold)}
-          sub={`${h.completeness.healthyPct}% green`}
+          sub={`${h.completeness.bands.green} green · ${h.completeness.bands.amber} amber · ${h.completeness.bands.red} red`}
+          tone="emerald"
+          icon={<CheckIcon />}
         />
         <Tile
           label="Avg completeness"
           value={`${h.completeness.averageScore}/100`}
-          sub={`${h.completeness.bands.green} green · ${h.completeness.bands.amber} amber · ${h.completeness.bands.red} red`}
+          sub={`${h.completeness.healthyPct}% in the green band`}
+          tone={HEALTH_TONE(scoreBand(h.completeness.averageScore))}
+          icon={<GaugeIcon />}
         />
         <Tile
-          label="Stale (15+ days)"
+          label="Stale (15+ days) £"
           value={gbp(h.aging.stockAtRisk)}
-          sub="value tied up"
+          sub="value tied up in old listings"
+          tone="rose"
+          icon={<HourglassIcon />}
         />
         <Tile
           label="This week's listings"
           value={`${h.cadence.currentCount} / ${h.cadence.target}`}
-          sub={PACE_BAND_LABEL[h.cadence.paceBand]}
-          tone={PACE_BAND_TONE[h.cadence.paceBand]}
+          sub={`${PACE_LABEL[h.cadence.paceBand]} · ${Math.round(h.cadence.pace * 100)}% of pace`}
+          tone={paceTone}
+          icon={<BoltIcon />}
         />
       </section>
 
-      {/* Cadence + Aging */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Listing cadence" description="Last 4 weeks vs your weekly target.">
-          <div className="space-y-2">
-            {h.cadence.weeks.map((w) => {
-              const max = Math.max(h.cadence.target, ...h.cadence.weeks.map((x) => x.count), 1);
-              const pct = (w.count / max) * 100;
-              return (
-                <div key={w.weekStart} className="flex items-center gap-3 text-sm">
-                  <span className={`w-20 text-xs ${w.current ? "font-medium" : "text-gray-500"}`}>
-                    {w.current ? "This week" : new Date(w.weekStart).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                  </span>
-                  <div className="flex-1 h-5 rounded bg-gray-100">
-                    <div
-                      className={`h-full rounded ${w.current ? "bg-blue-500" : "bg-gray-400"}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <span className="w-10 text-right tabular-nums">{w.count}</span>
-                </div>
-              );
-            })}
-            <p className="pt-2 text-xs text-gray-600">
-              Weekly average over the last 3 weeks: {h.cadence.weeklyAverage}
-            </p>
+      {/* Cadence + Aging + Needs-refresh row */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader
+            title="Listing cadence"
+            description="Last 4 weeks vs your weekly target."
+            action={
+              <span className="text-xs text-[var(--text-muted)]">
+                Avg {h.cadence.weeklyAverage}/wk
+              </span>
+            }
+          />
+          <div className="mt-4">
+            {totalAging === 0 && h.cadence.weeks.every((w) => w.count === 0) ? (
+              <p className="py-8 text-center text-sm text-[var(--text-muted)]">
+                Nothing listed in the last four weeks.
+              </p>
+            ) : (
+              <CadenceChart weeks={h.cadence.weeks} target={h.cadence.target} />
+            )}
           </div>
         </Card>
 
-        <Card title="Inventory aging" description="How long each unsold item has been listed.">
+        <Card>
+          <CardHeader
+            title="Inventory aging"
+            description="How long each unsold item has been listed."
+            action={
+              <span className="text-xs text-[var(--text-muted)]">
+                {totalAging} active
+              </span>
+            }
+          />
+
           {totalAging === 0 ? (
-            <p className="text-sm text-gray-500">No active inventory.</p>
+            <p className="mt-6 text-sm text-[var(--text-muted)]">
+              No active inventory.
+            </p>
           ) : (
             <>
-              <div className="mb-4 flex h-6 overflow-hidden rounded bg-gray-100">
+              <div className="mt-4 flex h-7 overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-inset)]">
                 {BUCKETS.map((b) => {
                   const count = h.aging.buckets[b.key];
                   if (!count) return null;
@@ -120,195 +210,323 @@ export default async function HealthPage() {
                   return (
                     <div
                       key={b.key}
-                      className={b.color}
+                      className={b.bg}
                       style={{ width: `${pct}%` }}
                       title={`${b.label}: ${count} items`}
                     />
                   );
                 })}
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                {BUCKETS.map((b) => (
-                  <div key={b.key} className="text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`h-2 w-2 rounded-full ${b.color}`} />
-                      <span className="text-gray-600">{b.label}</span>
-                    </div>
-                    <p className="mt-0.5 text-sm font-medium">{h.aging.buckets[b.key]}</p>
-                    <p className="text-xs text-gray-500">{gbp(h.aging.bucketValues[b.key])}</p>
-                  </div>
-                ))}
-              </div>
+              <ul className="mt-4 grid grid-cols-5 gap-2">
+                {BUCKETS.map((b) => {
+                  const count = h.aging.buckets[b.key];
+                  return (
+                    <li key={b.key} className="text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${b.dot}`} />
+                        <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                          {b.label}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-base font-semibold tabular-nums text-[var(--text-primary)]">
+                        {count}
+                      </p>
+                      <p className="text-[11px] tabular-nums text-[var(--text-muted)]">
+                        {gbp(h.aging.bucketValues[b.key])}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-4 text-xs text-[var(--text-muted)]">
+                {gbp(h.aging.stockAtRisk)} tied up in inventory listed 15+ days.
+              </p>
             </>
           )}
         </Card>
-      </div>
 
-      {/* Needs refresh + Completeness biggest impact */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card
-          title="Needs a refresh"
-          description="Listings most overdue an edit, weighted by completeness gap and price at risk."
-        >
+        <Card>
+          <CardHeader
+            title="Needs a refresh"
+            description="Most overdue listings, weighted by gap and price."
+          />
           {h.needsRefresh.length === 0 ? (
-            <p className="text-sm text-gray-500">Nothing is overdue.</p>
+            <p className="mt-6 text-sm text-[var(--text-muted)]">
+              Nothing is overdue. Nice work.
+            </p>
           ) : (
-            <ul className="divide-y">
-              {h.needsRefresh.map((r) => (
-                <li key={r.itemId} className="flex items-center justify-between py-2 text-sm">
-                  <Link href={`/inventory/${r.itemId}`} className="min-w-0 flex-1 truncate underline">
-                    {r.name}
-                  </Link>
-                  <div className="ml-3 flex shrink-0 items-center gap-3 text-xs text-gray-600">
-                    <span>{r.score}/100</span>
-                    <span>{r.daysSinceEdit}d</span>
-                    <span className="tabular-nums">{gbp(r.listedPrice)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card
-          title="Biggest completeness wins"
-          description="Fix one field to bump these the most."
-        >
-          {h.completeness.biggestImpact.length === 0 ? (
-            <p className="text-sm text-gray-500">Everything is complete.</p>
-          ) : (
-            <ul className="divide-y">
-              {h.completeness.biggestImpact.map((b) => (
-                <li key={b.itemId} className="flex items-center justify-between py-2 text-sm">
-                  <Link href={`/inventory/${b.itemId}`} className="min-w-0 flex-1 truncate underline">
-                    {b.itemId}
-                  </Link>
-                  <div className="ml-3 flex shrink-0 items-center gap-3 text-xs">
-                    <span className="text-gray-600">{b.score}/100</span>
-                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">
-                      +{b.missingWeight} {b.missingLabel}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      {/* Dead stock + Category mix */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card
-          title="Dead stock"
-          description="Listed for more than a week — candidates to reprice or relist."
-        >
-          {h.deadStock.length === 0 ? (
-            <p className="text-sm text-emerald-700">Nothing past the refresh threshold.</p>
-          ) : (
-            <ul className="divide-y">
-              {h.deadStock.slice(0, 15).map((d) => (
-                <li key={d.id} className="flex items-center justify-between py-2 text-sm">
-                  <Link href={`/inventory/${d.id}`} className="min-w-0 flex-1 truncate underline">
-                    {d.name}
-                  </Link>
-                  <div className="ml-3 flex shrink-0 items-center gap-3 text-xs text-gray-600">
-                    {d.brand && <span>{d.brand}</span>}
-                    <span className="tabular-nums">{gbp(d.listedPrice)}</span>
-                    <span
-                      className={`rounded px-1.5 py-0.5 ${
-                        d.daysListed >= 22
-                          ? "bg-red-50 text-red-700"
-                          : d.daysListed >= 15
-                            ? "bg-orange-50 text-orange-700"
-                            : "bg-amber-50 text-amber-700"
-                      }`}
+            <ul className="mt-3 divide-y divide-[var(--border-subtle)]">
+              {h.needsRefresh.slice(0, 5).map((r) => {
+                const band = scoreBand(r.score);
+                return (
+                  <li key={r.itemId} className="py-2.5">
+                    <Link
+                      href={`/inventory/${r.itemId}`}
+                      className="group flex items-center justify-between gap-3"
                     >
-                      {d.daysListed}d
-                    </span>
-                  </div>
-                </li>
-              ))}
-              {h.deadStock.length > 15 && (
-                <li className="py-2 text-center text-xs text-gray-500">
-                  + {h.deadStock.length - 15} more
-                </li>
-              )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--text-primary)] group-hover:underline">
+                          {r.name}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {r.daysSinceEdit}d since edit ·{" "}
+                          <span className="tabular-nums">
+                            {gbp(r.listedPrice)}
+                          </span>
+                        </p>
+                      </div>
+                      <ScoreBadge score={r.score} band={band} />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
+          )}
+          {h.needsRefresh.length > 5 && (
+            <Link
+              href="/inventory?status=listed"
+              className="mt-3 block text-center text-xs font-medium text-[var(--brand)] hover:underline"
+            >
+              View all {h.needsRefresh.length} →
+            </Link>
+          )}
+        </Card>
+      </section>
+
+      {/* Biggest wins + Dead stock + Where stock lives */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader
+            title="Biggest completeness wins"
+            description="Fix one field to bump these the most."
+          />
+          {h.completeness.biggestImpact.length === 0 ? (
+            <p className="mt-6 text-sm text-[var(--accent-emerald-soft-fg)]">
+              Everything is complete.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-[var(--border-subtle)]">
+              {h.completeness.biggestImpact.slice(0, 5).map((b) => {
+                const band = scoreBand(b.score);
+                const name = nameMap.get(b.itemId) ?? b.itemId;
+                return (
+                  <li key={b.itemId} className="py-2.5">
+                    <Link
+                      href={`/inventory/${b.itemId}`}
+                      className="group flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--text-primary)] group-hover:underline">
+                          {name}
+                        </p>
+                        <p className="mt-0.5 text-xs">
+                          <span className="rounded-[var(--radius-sm)] bg-[var(--accent-amber-soft)] px-1.5 py-0.5 font-medium text-[var(--accent-amber-soft-fg)]">
+                            +{b.missingWeight} {b.missingLabel}
+                          </span>
+                        </p>
+                      </div>
+                      <ScoreBadge score={b.score} band={band} />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {h.completeness.biggestImpact.length > 0 && (
+            <Link
+              href="/inventory?incomplete=1"
+              className="mt-3 block text-center text-xs font-medium text-[var(--brand)] hover:underline"
+            >
+              See all missing fields →
+            </Link>
           )}
         </Card>
 
-        <Card
-          title="Where your stock lives"
-          description="Active inventory grouped by category."
-        >
-          {h.categoryMix.length === 0 ? (
-            <p className="text-sm text-gray-500">No active inventory.</p>
+        <Card>
+          <CardHeader
+            title="Dead stock"
+            description="Listed for more than a week — candidates to reprice or relist."
+            action={
+              <span className="text-xs text-[var(--text-muted)]">
+                {h.deadStock.length} flagged
+              </span>
+            }
+          />
+          {h.deadStock.length === 0 ? (
+            <p className="mt-6 text-sm text-[var(--accent-emerald-soft-fg)]">
+              Nothing past the refresh threshold.
+            </p>
           ) : (
-            <ul className="space-y-1.5">
-              {h.categoryMix.slice(0, 10).map((g) => (
-                <li key={g.key} className="text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate">{g.key === "—" ? "Uncategorised" : g.key}</span>
-                    <span className="ml-3 text-xs text-gray-600">
+            <>
+              <ul className="mt-3 divide-y divide-[var(--border-subtle)]">
+                {h.deadStock.slice(0, 6).map((d) => {
+                  const bucket = dayBucket(d.daysListed);
+                  const meta = BUCKETS.find((b) => b.key === bucket)!;
+                  return (
+                    <li key={d.id} className="py-2.5">
+                      <Link
+                        href={`/inventory/${d.id}`}
+                        className="group flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-[var(--text-primary)] group-hover:underline">
+                            {d.name}
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {d.brand ? `${d.brand} · ` : ""}
+                            <span className="tabular-nums">
+                              {gbp(d.listedPrice)}
+                            </span>
+                          </p>
+                        </div>
+                        <DayChip days={d.daysListed} colorBg={meta.bg} />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {h.deadStock.length > 6 && (
+                <Link
+                  href="/inventory?status=listed&sort=date"
+                  className="mt-3 block text-center text-xs font-medium text-[var(--brand)] hover:underline"
+                >
+                  + {h.deadStock.length - 6} more 8+ day listings →
+                </Link>
+              )}
+            </>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Where your stock lives"
+            description="Active inventory grouped by category."
+          />
+          {h.categoryMix.length === 0 ? (
+            <p className="mt-6 text-sm text-[var(--text-muted)]">
+              No active inventory.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {h.categoryMix.slice(0, 8).map((g) => (
+                <li key={g.key}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate font-medium text-[var(--text-primary)]">
+                      {g.key === "—" ? "Uncategorised" : g.key}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
                       {g.count} · {gbp(g.valueTiedUp)}
                     </span>
                   </div>
-                  <div className="mt-1 h-1.5 rounded bg-gray-100">
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--surface-inset)]">
                     <div
-                      className="h-full rounded bg-gray-500"
-                      style={{ width: `${g.pctOfCount}%` }}
+                      className="h-full rounded-full bg-[var(--brand)]"
+                      style={{ width: `${Math.max(2, g.pctOfCount)}%` }}
                     />
                   </div>
                 </li>
               ))}
             </ul>
           )}
+          {h.categoryMix.length > 8 && (
+            <p className="mt-3 text-center text-xs text-[var(--text-muted)]">
+              + {h.categoryMix.length - 8} smaller categories
+            </p>
+          )}
         </Card>
-      </div>
+      </section>
     </div>
   );
 }
 
-function Tile({
-  label,
-  value,
-  sub,
-  tone,
+/* ---------- Small presentational helpers ---------- */
+
+function ScoreBadge({
+  score,
+  band,
 }: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: string;
+  score: number;
+  band: "good" | "watch" | "bad";
 }) {
+  const cls =
+    band === "good"
+      ? "bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald-soft-fg)]"
+      : band === "watch"
+        ? "bg-[var(--accent-amber-soft)] text-[var(--accent-amber-soft-fg)]"
+        : "bg-[var(--accent-rose-soft)] text-[var(--accent-rose-soft-fg)]";
   return (
-    <div className="rounded-md border p-4">
-      <div className="text-xs uppercase text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-      {sub && (
-        <div
-          className={`mt-1 inline-block rounded px-1.5 text-xs ${tone ?? "text-gray-500"}`}
-        >
-          {sub}
-        </div>
-      )}
-    </div>
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold tabular-nums ${cls}`}
+      title={`Completeness ${score}/100`}
+    >
+      {score}
+    </span>
   );
 }
 
-function Card({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
+function DayChip({ days, colorBg }: { days: number; colorBg: string }) {
   return (
-    <section className="rounded-md border p-4">
-      <h2 className="text-sm font-medium">{title}</h2>
-      {description && <p className="mt-0.5 text-xs text-gray-500">{description}</p>}
-      <div className="mt-3">{children}</div>
-    </section>
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold text-white ${colorBg}`}
+    >
+      {days}d
+    </span>
+  );
+}
+
+/* ---------- Inline icons (mirror Dashboard convention) ---------- */
+
+function CheckIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M3.5 9.5l3 3 8-8"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function GaugeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M3 12a6 6 0 1 1 12 0M9 12l3-3"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function HourglassIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M5 3h8M5 15h8M5 3v2.5L9 9l-4 3.5V15M13 3v2.5L9 9l4 3.5V15"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

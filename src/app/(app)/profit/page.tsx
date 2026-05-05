@@ -11,10 +11,12 @@ import {
   Card,
   CardHeader,
   PageHeader,
+  SegmentedControl,
   Tile,
 } from "@/components/ui";
 import { CostCompositionChart, RevenueVsCostsChart } from "./charts";
 import type { CostSlice } from "./charts";
+import type { AcquisitionType } from "@/db/schema";
 
 const PRESETS = [
   { value: "this_month", label: "This month" },
@@ -39,21 +41,44 @@ function formatRangeSubtitle(from: Date | null, to: Date | null) {
   return "";
 }
 
+type TypeFilter = "all" | "bought" | "own";
+const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "bought", label: "Bought" },
+  { value: "own", label: "Own" },
+];
+
+function buildProfitHref(preset: string, type: TypeFilter): string {
+  const sp = new URLSearchParams();
+  if (preset && preset !== "this_month") sp.set("preset", preset);
+  if (type !== "all") sp.set("type", type);
+  const qs = sp.toString();
+  return qs ? `/profit?${qs}` : "/profit";
+}
+
 export default async function ProfitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string }>;
+  searchParams: Promise<{ preset?: string; type?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const { preset = "this_month" } = await searchParams;
+  const { preset = "this_month", type = "all" } = await searchParams;
   const presetKey = preset === "all" ? "" : preset;
   const range = resolveDateRange(presetKey || null, null, null);
 
+  const typeFilter: TypeFilter = (
+    TYPE_OPTIONS.map((o) => o.value).includes(type as TypeFilter)
+      ? (type as TypeFilter)
+      : "all"
+  );
+  const acquisitionFilter: AcquisitionType | undefined =
+    typeFilter === "all" ? undefined : (typeFilter as AcquisitionType);
+
   const [r, series, itemCount] = await Promise.all([
-    computeProfit(userId, range),
-    computeProfitSeries(userId, range),
+    computeProfit(userId, range, acquisitionFilter),
+    computeProfitSeries(userId, range, acquisitionFilter),
     userScope(userId).countItems(),
   ]);
 
@@ -64,11 +89,32 @@ export default async function ProfitPage({
   const itemIds = r.itemProfits.map((p) => p.id);
   const thumbMap = await userScope(userId).getItemHasThumbnailMap(itemIds);
 
-  const costSlices: CostSlice[] = [
+  // Wardrobe (own) revenue context. Only meaningful in "all" mode and only when
+  // both bought and own contributed.
+  const ownRev = r.byAcquisition.own.revenue;
+  const ownCount = r.byAcquisition.own.count;
+  const boughtRev = r.byAcquisition.bought.revenue;
+  const showWardrobeContext =
+    typeFilter === "all" && ownRev > 0 && boughtRev > 0;
+
+  const baseCostSlices: CostSlice[] = [
     { name: "Cost of goods", value: s.cost, color: "var(--brand)" },
     { name: "Shipping", value: s.shipping, color: "var(--accent-amber)" },
     { name: "Other expenses", value: s.totalExpenses, color: "var(--accent-rose)" },
-  ].filter((s) => s.value > 0);
+  ].filter((slice) => slice.value > 0);
+  const costSlices: CostSlice[] = showWardrobeContext
+    ? [
+        ...baseCostSlices,
+        // Quiet "wardrobe revenue" annotation — surfaces own-goods contribution
+        // alongside the cost composition. Muted slate to keep brand teal on
+        // bought-revenue elsewhere.
+        {
+          name: "Wardrobe revenue",
+          value: ownRev,
+          color: "var(--text-muted)",
+        },
+      ]
+    : baseCostSlices;
   const totalCosts = s.cost + s.shipping + s.totalExpenses;
 
   return (
@@ -77,25 +123,34 @@ export default async function ProfitPage({
         title="Profit"
         subtitle={formatRangeSubtitle(range.from, range.to)}
         actions={
-          <form className="flex items-center gap-2 text-sm">
-            <select
-              name="preset"
-              defaultValue={preset}
-              className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)]"
-            >
-              {PRESETS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm font-medium hover:bg-[var(--surface-muted)]"
-            >
-              Apply
-            </button>
-          </form>
+          <div className="flex items-center gap-3">
+            <SegmentedControl
+              options={TYPE_OPTIONS}
+              active={typeFilter}
+              tone="brand"
+              hrefFor={(v) => buildProfitHref(preset, v)}
+            />
+            <form className="flex items-center gap-2 text-sm">
+              <input type="hidden" name="type" value={typeFilter} />
+              <select
+                name="preset"
+                defaultValue={preset}
+                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)]"
+              >
+                {PRESETS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm font-medium hover:bg-[var(--surface-muted)]"
+              >
+                Apply
+              </button>
+            </form>
+          </div>
         }
       />
 
@@ -236,6 +291,12 @@ export default async function ProfitPage({
             <SummaryRow label="Shipping" value={gbp(s.shipping)} />
             <SummaryRow label="Other expenses" value={gbp(s.totalExpenses)} />
           </dl>
+          {typeFilter === "all" && ownRev > 0 && (
+            <p className="mt-4 text-xs text-[var(--text-muted)]">
+              Of which {gbp(ownRev)} ({ownCount}{" "}
+              {ownCount === 1 ? "item" : "items"}) was from your own goods.
+            </p>
+          )}
         </Card>
       </section>
 

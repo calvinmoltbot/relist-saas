@@ -62,7 +62,14 @@ export default async function DashboardPage() {
   const hasThumb = await userScope(userId).getItemHasThumbnailMap(
     topProfit.map((p) => p.id),
   );
-  const topThumbs = topProfit.map((p) => ({ ...p, hasThumbnail: hasThumb.get(p.id) ?? false }));
+  const topThumbs = topProfit.map((p) => {
+    const t = hasThumb.get(p.id);
+    return {
+      ...p,
+      hasThumbnail: t?.hasThumbnail ?? false,
+      thumbnailUrl: t?.thumbnailUrl ?? null,
+    };
+  });
 
   return (
     <div className="space-y-8">
@@ -175,7 +182,7 @@ export default async function DashboardPage() {
                           <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
                             {p.hasThumbnail ? (
                               <Image
-                                src={`/api/inventory/thumb/${p.id}`}
+                                src={p.thumbnailUrl ?? `/api/inventory/thumb/${p.id}`}
                                 alt=""
                                 width={36}
                                 height={36}

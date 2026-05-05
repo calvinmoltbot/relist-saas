@@ -228,6 +228,7 @@ type Row = {
   listedPrice: string | null;
   soldPrice: string | null;
   hasThumbnail: boolean;
+  thumbnailUrl: string | null;
 };
 
 function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
@@ -236,7 +237,7 @@ function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`/api/inventory/thumb/${row.id}`}
+        src={row.thumbnailUrl ?? `/api/inventory/thumb/${row.id}`}
         alt=""
         loading="lazy"
         style={{ width: px, height: px }}
@@ -350,7 +351,7 @@ function GridView({ rows }: { rows: Row[] }) {
                 {r.hasThumbnail ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/inventory/thumb/${r.id}`}
+                    src={r.thumbnailUrl ?? `/api/inventory/thumb/${r.id}`}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover"

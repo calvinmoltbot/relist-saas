@@ -186,8 +186,18 @@ export default async function DashboardPage() {
                               <span className="m-auto text-[9px] uppercase text-[var(--text-muted)]">no img</span>
                             )}
                           </span>
-                          <span className="font-medium text-[var(--text-primary)] hover:underline">
-                            {p.name}
+                          <span className="flex items-center gap-2">
+                            <span className="font-medium text-[var(--text-primary)] hover:underline">
+                              {p.name}
+                            </span>
+                            {p.acquisitionType === "own" && (
+                              <span
+                                className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]"
+                                title="From your own goods"
+                              >
+                                Own
+                              </span>
+                            )}
                           </span>
                         </Link>
                       </td>

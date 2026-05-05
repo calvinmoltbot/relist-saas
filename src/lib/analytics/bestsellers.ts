@@ -1,6 +1,6 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db/client";
-import { items, transactions } from "@/db/schema";
+import { items, transactions, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
 import { coerceMoney } from "@/lib/money";
 
@@ -25,6 +25,7 @@ export interface GroupStat {
   medianDaysToSell: number;
   medianProfit: number;
   medianMarginPct: number;
+  meanSoldPrice: number;
   totalRevenue: number;
   fastestDays: number;
   slowestDays: number;
@@ -43,9 +44,18 @@ function median(values: number[]): number {
     : sorted[mid];
 }
 
-export async function computeBestsellers(userId: string, range: DateRange) {
+export async function computeBestsellers(
+  userId: string,
+  range: DateRange,
+  acquisitionType?: AcquisitionType,
+) {
   // Pull sold + shipped items in the user's scope; we filter by soldAt range
   // in JS so the schema's soldAt nullable case stays explicit.
+  const conds = [
+    eq(items.userId, userId),
+    or(eq(items.status, "sold"), eq(items.status, "shipped"))!,
+  ];
+  if (acquisitionType) conds.push(eq(items.acquisitionType, acquisitionType));
   const rows = await db
     .select({
       id: items.id,
@@ -61,12 +71,7 @@ export async function computeBestsellers(userId: string, range: DateRange) {
       soldAt: items.soldAt,
     })
     .from(items)
-    .where(
-      and(
-        eq(items.userId, userId),
-        or(eq(items.status, "sold"), eq(items.status, "shipped"))!,
-      ),
-    );
+    .where(and(...conds));
 
   const inRange = rows.filter((r) => {
     if (!r.listedAt || !r.soldAt) return false;
@@ -138,13 +143,15 @@ export async function computeBestsellers(userId: string, range: DateRange) {
     for (const [k, list] of buckets) {
       if (list.length < MIN_GROUP_SIZE) continue;
       const days = list.map((b) => b.daysToSell);
+      const totalRev = list.reduce((s, b) => s + b.soldPrice, 0);
       out.push({
         key: k,
         count: list.length,
         medianDaysToSell: median(days),
         medianProfit: median(list.map((b) => b.netProfit)),
         medianMarginPct: median(list.map((b) => b.marginPct)),
-        totalRevenue: list.reduce((s, b) => s + b.soldPrice, 0),
+        meanSoldPrice: list.length ? totalRev / list.length : 0,
+        totalRevenue: totalRev,
         fastestDays: Math.min(...days),
         slowestDays: Math.max(...days),
       });
@@ -160,15 +167,17 @@ export async function computeBestsellers(userId: string, range: DateRange) {
     size: buildGroups(dimensionKey.size),
   };
 
+  const overallTotalRev = itemStats.reduce((s, b) => s + b.soldPrice, 0);
   const overall = {
     totalSold: itemStats.length,
     medianDaysToSell: median(itemStats.map((s) => s.daysToSell)),
     medianProfit: median(itemStats.map((s) => s.netProfit)),
     medianMarginPct: median(itemStats.map((s) => s.marginPct)),
+    meanSoldPrice: itemStats.length ? overallTotalRev / itemStats.length : 0,
     fastestDays: itemStats.length
       ? Math.min(...itemStats.map((s) => s.daysToSell))
       : 0,
-    totalRevenue: itemStats.reduce((s, b) => s + b.soldPrice, 0),
+    totalRevenue: overallTotalRev,
   };
 
   const topFastest = [...itemStats]

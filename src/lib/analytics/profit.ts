@@ -1,6 +1,6 @@
 import { and, eq, gte, lte, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { items, transactions, expenses } from "@/db/schema";
+import { items, transactions, expenses, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
 import { coerceMoney } from "@/lib/money";
 
@@ -13,8 +13,17 @@ export type ProfitReport = Awaited<ReturnType<typeof computeProfit>>;
  * User-scoped profit aggregation. Mirrors the original profit route's headline
  * shape — summary, stock, comparisons, breakdowns — minus targets and the
  * inventory-health buckets (those land alongside user_settings/daily-plan).
+ *
+ * `acquisitionType` (optional) scopes every aggregate to bought-only or own-only
+ * items. When omitted, both contribute. See issue #46.
  */
-export async function computeProfit(userId: string, range: DateRange) {
+export async function computeProfit(
+  userId: string,
+  range: DateRange,
+  acquisitionType?: AcquisitionType,
+) {
+  const conds = [eq(items.userId, userId)];
+  if (acquisitionType) conds.push(eq(items.acquisitionType, acquisitionType));
   const allItems = await db
     .select({
       id: items.id,
@@ -28,9 +37,10 @@ export async function computeProfit(userId: string, range: DateRange) {
       soldAt: items.soldAt,
       listedAt: items.listedAt,
       sourceType: items.sourceType,
+      acquisitionType: items.acquisitionType,
     })
     .from(items)
-    .where(eq(items.userId, userId));
+    .where(and(...conds));
 
   const hasFilter = range.from != null || range.to != null;
   const sold = allItems.filter((i) => {
@@ -62,6 +72,13 @@ export async function computeProfit(userId: string, range: DateRange) {
   let cost = 0;
   let shipping = 0;
 
+  // Track per-acquisition-type splits so /profit can show a "wardrobe revenue"
+  // slice / footnote when both contributed in the period.
+  let boughtRevenue = 0;
+  let boughtCount = 0;
+  let ownRevenue = 0;
+  let ownCount = 0;
+
   const byCategory = new Map<string, { revenue: number; profit: number; count: number }>();
   const bySource = new Map<string, { revenue: number; profit: number; count: number }>();
   const byMonth = new Map<string, { revenue: number; profit: number; count: number }>();
@@ -73,6 +90,7 @@ export async function computeProfit(userId: string, range: DateRange) {
     cost: number;
     netProfit: number;
     soldAt: string | null;
+    acquisitionType: AcquisitionType;
   }> = [];
 
   for (const it of sold) {
@@ -85,6 +103,14 @@ export async function computeProfit(userId: string, range: DateRange) {
     revenue += s;
     cost += c;
     shipping += sh;
+
+    if (it.acquisitionType === "own") {
+      ownRevenue += s;
+      ownCount += 1;
+    } else {
+      boughtRevenue += s;
+      boughtCount += 1;
+    }
 
     const cat = it.category || "uncategorised";
     const src = it.sourceType || "unknown";
@@ -109,6 +135,7 @@ export async function computeProfit(userId: string, range: DateRange) {
       cost: c,
       netProfit: net,
       soldAt: it.soldAt?.toISOString() ?? null,
+      acquisitionType: it.acquisitionType,
     });
   }
 
@@ -158,6 +185,10 @@ export async function computeProfit(userId: string, range: DateRange) {
       avgMargin: revenue > 0 ? round((netProfit / revenue) * 100) : 0,
       avgProfitPerItem: sold.length ? round(netProfit / sold.length) : 0,
       sellThroughRate: round(sellThrough),
+    },
+    byAcquisition: {
+      bought: { revenue: round(boughtRevenue), count: boughtCount },
+      own: { revenue: round(ownRevenue), count: ownCount },
     },
     itemProfits: itemProfits.sort((a, b) => b.netProfit - a.netProfit),
     byCategory: Array.from(byCategory, ([category, v]) => ({

@@ -1,6 +1,6 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db/client";
-import { items, transactions, expenses } from "@/db/schema";
+import { items, transactions, expenses, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
 import { coerceMoney } from "@/lib/money";
 
@@ -36,7 +36,10 @@ function startOfDay(d: Date) {
 export async function computeProfitSeries(
   userId: string,
   range: DateRange,
+  acquisitionType?: AcquisitionType,
 ): Promise<ProfitSeriesPoint[]> {
+  const conds = [eq(items.userId, userId)];
+  if (acquisitionType) conds.push(eq(items.acquisitionType, acquisitionType));
   const sold = await db
     .select({
       id: items.id,
@@ -46,7 +49,7 @@ export async function computeProfitSeries(
       status: items.status,
     })
     .from(items)
-    .where(eq(items.userId, userId));
+    .where(and(...conds));
 
   // Clamp range
   const soldDates = sold

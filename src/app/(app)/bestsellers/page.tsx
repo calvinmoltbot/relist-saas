@@ -7,6 +7,7 @@ import {
   type GroupStat,
   type ItemStat,
 } from "@/lib/analytics/bestsellers";
+import type { AcquisitionType } from "@/db/schema";
 import { resolveDateRange } from "@/lib/date-range";
 import {
   Card,
@@ -72,6 +73,13 @@ const SORTS: { value: SortKey; label: string }[] = [
   { value: "margin", label: "Margin" },
 ];
 
+type TypeFilter = "all" | "bought" | "own";
+const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "bought", label: "Bought" },
+  { value: "own", label: "Own" },
+];
+
 function sortGroups(groups: GroupStat[], sort: SortKey): GroupStat[] {
   const copy = [...groups];
   if (sort === "fastest") return copy.sort((a, b) => a.medianDaysToSell - b.medianDaysToSell);
@@ -79,30 +87,48 @@ function sortGroups(groups: GroupStat[], sort: SortKey): GroupStat[] {
   return copy.sort((a, b) => b.medianMarginPct - a.medianMarginPct);
 }
 
-function buildHref(params: { preset?: string; dim: Dimension; sort: SortKey }): string {
+function buildHref(params: {
+  preset?: string;
+  dim: Dimension;
+  sort: SortKey;
+  type: TypeFilter;
+}): string {
   const sp = new URLSearchParams({ dim: params.dim, sort: params.sort });
   if (params.preset) sp.set("preset", params.preset);
+  if (params.type !== "all") sp.set("type", params.type);
   return `/bestsellers?${sp.toString()}`;
 }
 
 export default async function BestsellersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; dim?: string; sort?: string }>;
+  searchParams: Promise<{ preset?: string; dim?: string; sort?: string; type?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const { preset = "", dim = "category", sort = "fastest" } = await searchParams;
+  const {
+    preset = "",
+    dim = "category",
+    sort = "fastest",
+    type = "all",
+  } = await searchParams;
   const dimension: Dimension = (
     DIMENSIONS.map((d) => d.value).includes(dim as Dimension) ? dim : "category"
   ) as Dimension;
   const sortKey: SortKey = (
     SORTS.map((s) => s.value).includes(sort as SortKey) ? sort : "fastest"
   ) as SortKey;
+  const typeFilter: TypeFilter = (
+    TYPE_OPTIONS.map((o) => o.value).includes(type as TypeFilter)
+      ? (type as TypeFilter)
+      : "all"
+  );
+  const acquisitionFilter: AcquisitionType | undefined =
+    typeFilter === "all" ? undefined : (typeFilter as AcquisitionType);
 
   const range = resolveDateRange(preset || null, null, null);
-  const data = await computeBestsellers(userId, range);
+  const data = await computeBestsellers(userId, range, acquisitionFilter);
   const groups = sortGroups(data.groups[dimension], sortKey);
   const hasEnough = data.overall.totalSold >= data.minGroupSize;
 
@@ -112,9 +138,19 @@ export default async function BestsellersPage({
         title="Best sellers"
         subtitle="What's flying out the door — time-to-sell grouped by product attributes."
         actions={
+          <div className="flex items-center gap-3">
+            <SegmentedControl
+              options={TYPE_OPTIONS}
+              active={typeFilter}
+              tone="brand"
+              hrefFor={(v) =>
+                buildHref({ preset, dim: dimension, sort: sortKey, type: v })
+              }
+            />
           <form className="flex items-center gap-2 text-sm">
             <input type="hidden" name="dim" value={dimension} />
             <input type="hidden" name="sort" value={sortKey} />
+            <input type="hidden" name="type" value={typeFilter} />
             <select
               name="preset"
               defaultValue={preset}
@@ -134,6 +170,7 @@ export default async function BestsellersPage({
               Apply
             </button>
           </form>
+          </div>
         }
       />
 
@@ -162,17 +199,31 @@ export default async function BestsellersPage({
           label="Median profit"
           value={data.overall.totalSold ? gbp(data.overall.medianProfit) : "—"}
         />
-        <Tile
-          tone="violet"
-          icon={<span aria-hidden>%</span>}
-          label="Median margin"
-          value={data.overall.totalSold ? pct(data.overall.medianMarginPct) : "—"}
-          sub={
-            data.overall.totalSold
-              ? `${gbp0(data.overall.totalRevenue)} revenue`
-              : undefined
-          }
-        />
+        {typeFilter === "own" ? (
+          <Tile
+            tone="violet"
+            icon={<span aria-hidden>£</span>}
+            label="Mean sold for"
+            value={data.overall.totalSold ? gbp(data.overall.meanSoldPrice) : "—"}
+            sub={
+              data.overall.totalSold
+                ? `${gbp0(data.overall.totalRevenue)} revenue`
+                : undefined
+            }
+          />
+        ) : (
+          <Tile
+            tone="violet"
+            icon={<span aria-hidden>%</span>}
+            label="Median margin"
+            value={data.overall.totalSold ? pct(data.overall.medianMarginPct) : "—"}
+            sub={
+              data.overall.totalSold
+                ? `${gbp0(data.overall.totalRevenue)} revenue`
+                : undefined
+            }
+          />
+        )}
       </section>
 
       {!hasEnough ? (
@@ -202,19 +253,23 @@ export default async function BestsellersPage({
                 options={DIMENSIONS}
                 active={dimension}
                 tone="brand"
-                hrefFor={(v) => buildHref({ preset, dim: v, sort: sortKey })}
+                hrefFor={(v) => buildHref({ preset, dim: v, sort: sortKey, type: typeFilter })}
               />
               <SegmentedControl
                 label="Sort"
                 options={SORTS}
                 active={sortKey}
                 tone="emerald"
-                hrefFor={(v) => buildHref({ preset, dim: dimension, sort: v })}
+                hrefFor={(v) => buildHref({ preset, dim: dimension, sort: v, type: typeFilter })}
               />
             </div>
 
             <div className="mt-5">
-              <GroupTable dimension={dimension} groups={groups} />
+              <GroupTable
+                dimension={dimension}
+                groups={groups}
+                hideMargin={typeFilter === "own"}
+              />
             </div>
           </Card>
 
@@ -274,9 +329,11 @@ const MARGIN_TONE: Record<"good" | "watch" | "bad", { bar: string; pill: string 
 function GroupTable({
   dimension,
   groups,
+  hideMargin,
 }: {
   dimension: Dimension;
   groups: GroupStat[];
+  hideMargin?: boolean;
 }) {
   if (groups.length === 0) {
     return (
@@ -296,7 +353,11 @@ function GroupTable({
             <th className="py-2 pr-3 text-right font-medium">Median days</th>
             <th className="py-2 pr-3 text-right font-medium">Range</th>
             <th className="py-2 pr-3 text-right font-medium">Median profit</th>
-            <th className="py-2 pr-3 font-medium">Margin</th>
+            {hideMargin ? (
+              <th className="py-2 pr-3 text-right font-medium">Mean sold for</th>
+            ) : (
+              <th className="py-2 pr-3 font-medium">Margin</th>
+            )}
             <th className="py-2 pr-3 text-right font-medium">Revenue</th>
           </tr>
         </thead>
@@ -325,21 +386,27 @@ function GroupTable({
                 <td className="py-3 pr-3 text-right tabular-nums text-[var(--text-primary)]">
                   {gbp(g.medianProfit)}
                 </td>
-                <td className="py-3 pr-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-[var(--surface-inset)]">
-                      <div
-                        className={`h-full rounded-full ${tone.bar}`}
-                        style={{ width: `${barWidth}%` }}
-                      />
+                {hideMargin ? (
+                  <td className="py-3 pr-3 text-right tabular-nums text-[var(--text-primary)]">
+                    {gbp(g.meanSoldPrice)}
+                  </td>
+                ) : (
+                  <td className="py-3 pr-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-[var(--surface-inset)]">
+                        <div
+                          className={`h-full rounded-full ${tone.bar}`}
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-medium tabular-nums ${tone.pill}`}
+                      >
+                        {pct(g.medianMarginPct)}
+                      </span>
                     </div>
-                    <span
-                      className={`rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-medium tabular-nums ${tone.pill}`}
-                    >
-                      {pct(g.medianMarginPct)}
-                    </span>
-                  </div>
-                </td>
+                  </td>
+                )}
                 <td className="py-3 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
                   {gbp(g.totalRevenue)}
                 </td>

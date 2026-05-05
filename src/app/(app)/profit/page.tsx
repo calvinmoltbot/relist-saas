@@ -355,7 +355,7 @@ export default async function ProfitPage({
                             <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
                               {hasThumbnail ? (
                                 <Image
-                                  src={thumbnailUrl ?? `/api/inventory/thumb/${p.id}`}
+                                  src={thumbnailUrl ?? ""}
                                   alt=""
                                   width={36}
                                   height={36}

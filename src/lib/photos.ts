@@ -4,10 +4,8 @@ import { put, del } from "@vercel/blob";
 // Full-size: 1200x1200 JPEG q70 (~200-400 KB). Detail views.
 // Thumbnail: 200x200 JPEG q60 (~10-20 KB). List cards.
 //
-// Phase 1 (this file): new uploads write to Vercel Blob and we persist the
-// public CDN URLs into items.photoUrls / items.thumbnailUrl. Existing rows
-// from the legacy world still hold `data:image/...;base64,...` strings;
-// readers branch on the prefix (see `thumbSrc`).
+// All photos live on Vercel Blob; items.photoUrls / items.thumbnailUrl
+// always hold public CDN URLs (or null when no photo).
 
 const DATA_URI_RE = /^data:(image\/[^;]+);base64,(.+)$/;
 
@@ -134,43 +132,3 @@ export async function tryDeleteBlobUrl(value: string): Promise<void> {
   }
 }
 
-/** Decide what `<img src>` to use for a thumbnail.  New uploads have https
- *  Blob URLs and we serve them from the CDN.  Legacy base64 rows go via
- *  the per-user proxy at /api/inventory/thumb/[id]. */
-export function thumbSrc(itemId: string, thumbnailUrl: string | null | undefined): string {
-  if (thumbnailUrl && /^https?:\/\//.test(thumbnailUrl)) return thumbnailUrl;
-  return `/api/inventory/thumb/${itemId}`;
-}
-
-// ---------------------------------------------------------------------------
-// Legacy helpers — kept for the thumb proxy route + DELETE rederive path.
-// ---------------------------------------------------------------------------
-
-/** Legacy: resize a base64 data URI in-memory and return both as data URIs. */
-export async function resizeFromDataUri(
-  dataUri: string,
-): Promise<{ full: string; thumb: string } | null> {
-  const match = dataUri.match(DATA_URI_RE);
-  if (!match) return null;
-  try {
-    const buffer = Buffer.from(match[2], "base64");
-    const { full, thumb } = await resizePhotoBuffer(buffer);
-    return {
-      full: `data:image/jpeg;base64,${full.toString("base64")}`,
-      thumb: `data:image/jpeg;base64,${thumb.toString("base64")}`,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function decodeDataUri(
-  dataUri: string,
-): { contentType: string; buffer: Buffer } | null {
-  const match = dataUri.match(DATA_URI_RE);
-  if (!match) return null;
-  return {
-    contentType: match[1],
-    buffer: Buffer.from(match[2], "base64"),
-  };
-}

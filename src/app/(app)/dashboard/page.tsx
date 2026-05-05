@@ -182,7 +182,7 @@ export default async function DashboardPage() {
                           <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
                             {p.hasThumbnail ? (
                               <Image
-                                src={p.thumbnailUrl ?? `/api/inventory/thumb/${p.id}`}
+                                src={p.thumbnailUrl ?? ""}
                                 alt=""
                                 width={36}
                                 height={36}

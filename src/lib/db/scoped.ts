@@ -169,9 +169,7 @@ export function userScope(userId: string) {
         status: items.status,
         platform: items.platform,
         hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
-        // Only ship URL across wire when it's a CDN URL — legacy base64
-        // entries are huge, so we resolve those via the proxy route.
-        thumbnailUrl: sql<string | null>`CASE WHEN ${items.thumbnailUrl} LIKE 'http%' THEN ${items.thumbnailUrl} ELSE NULL END`.as("thumb_url"),
+        thumbnailUrl: items.thumbnailUrl,
         description: items.description,
         sourceType: items.sourceType,
         sourceLocation: items.sourceLocation,
@@ -311,11 +309,7 @@ export function userScope(userId: string) {
       return out;
     },
 
-    /** Return a Map<id, { hasThumbnail, thumbnailUrl }> in one round-trip.
-     *  We only ship the URL across the wire when it's an https CDN URL —
-     *  legacy base64 entries return `thumbnailUrl: null` to keep payloads
-     *  tiny (callers fall back to the /api/inventory/thumb/[id] proxy).
-     *  `hasThumbnail` covers both cases. */
+    /** Return a Map<id, { hasThumbnail, thumbnailUrl }> in one round-trip. */
     getItemHasThumbnailMap: async (ids: string[]) => {
       const out = new Map<
         string,
@@ -326,7 +320,7 @@ export function userScope(userId: string) {
         .select({
           id: items.id,
           hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
-          thumbnailUrl: sql<string | null>`CASE WHEN ${items.thumbnailUrl} LIKE 'http%' THEN ${items.thumbnailUrl} ELSE NULL END`.as("thumb_url"),
+          thumbnailUrl: items.thumbnailUrl,
         })
         .from(items)
         .where(and(eq(items.userId, userId), inArray(items.id, ids)));

@@ -237,7 +237,7 @@ function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={row.thumbnailUrl ?? `/api/inventory/thumb/${row.id}`}
+        src={row.thumbnailUrl ?? ""}
         alt=""
         loading="lazy"
         style={{ width: px, height: px }}
@@ -351,7 +351,7 @@ function GridView({ rows }: { rows: Row[] }) {
                 {r.hasThumbnail ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={r.thumbnailUrl ?? `/api/inventory/thumb/${r.id}`}
+                    src={r.thumbnailUrl ?? ""}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover"

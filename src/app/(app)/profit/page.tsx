@@ -339,7 +339,9 @@ export default async function ProfitPage({
                 </thead>
                 <tbody>
                   {r.itemProfits.map((p) => {
-                    const hasThumbnail = thumbMap.get(p.id) ?? false;
+                    const thumbInfo = thumbMap.get(p.id);
+                    const hasThumbnail = thumbInfo?.hasThumbnail ?? false;
+                    const thumbnailUrl = thumbInfo?.thumbnailUrl ?? null;
                     return (
                       <tr
                         key={p.id}
@@ -353,7 +355,7 @@ export default async function ProfitPage({
                             <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
                               {hasThumbnail ? (
                                 <Image
-                                  src={`/api/inventory/thumb/${p.id}`}
+                                  src={thumbnailUrl ?? `/api/inventory/thumb/${p.id}`}
                                   alt=""
                                   width={36}
                                   height={36}

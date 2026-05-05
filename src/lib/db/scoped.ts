@@ -169,6 +169,9 @@ export function userScope(userId: string) {
         status: items.status,
         platform: items.platform,
         hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
+        // Only ship URL across wire when it's a CDN URL — legacy base64
+        // entries are huge, so we resolve those via the proxy route.
+        thumbnailUrl: sql<string | null>`CASE WHEN ${items.thumbnailUrl} LIKE 'http%' THEN ${items.thumbnailUrl} ELSE NULL END`.as("thumb_url"),
         description: items.description,
         sourceType: items.sourceType,
         sourceLocation: items.sourceLocation,
@@ -308,20 +311,31 @@ export function userScope(userId: string) {
       return out;
     },
 
-    /** Return a Map<id, hasThumbnail> in one round-trip — cheap because we
-     *  only select the boolean, not the bytes. Use this any time you need
-     *  to know which of N items have thumbnails (e.g. dashboard, lists). */
+    /** Return a Map<id, { hasThumbnail, thumbnailUrl }> in one round-trip.
+     *  We only ship the URL across the wire when it's an https CDN URL —
+     *  legacy base64 entries return `thumbnailUrl: null` to keep payloads
+     *  tiny (callers fall back to the /api/inventory/thumb/[id] proxy).
+     *  `hasThumbnail` covers both cases. */
     getItemHasThumbnailMap: async (ids: string[]) => {
-      const out = new Map<string, boolean>();
+      const out = new Map<
+        string,
+        { hasThumbnail: boolean; thumbnailUrl: string | null }
+      >();
       if (ids.length === 0) return out;
       const rows = await db
         .select({
           id: items.id,
           hasThumbnail: sql<boolean>`${items.thumbnailUrl} IS NOT NULL`.as("has_thumbnail"),
+          thumbnailUrl: sql<string | null>`CASE WHEN ${items.thumbnailUrl} LIKE 'http%' THEN ${items.thumbnailUrl} ELSE NULL END`.as("thumb_url"),
         })
         .from(items)
         .where(and(eq(items.userId, userId), inArray(items.id, ids)));
-      for (const r of rows) out.set(r.id, !!r.hasThumbnail);
+      for (const r of rows) {
+        out.set(r.id, {
+          hasThumbnail: !!r.hasThumbnail,
+          thumbnailUrl: r.thumbnailUrl ?? null,
+        });
+      }
       return out;
     },
 

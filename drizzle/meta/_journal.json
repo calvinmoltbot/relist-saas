@@ -50,6 +50,13 @@
       "when": 1777928975583,
       "tag": "0006_short_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778089164817,
+      "tag": "0007_salty_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

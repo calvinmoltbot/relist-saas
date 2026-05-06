@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, inArray, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items, transactions, expenses, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
@@ -38,8 +38,15 @@ export async function computeProfitSeries(
   range: DateRange,
   acquisitionType?: AcquisitionType,
 ): Promise<ProfitSeriesPoint[]> {
-  const conds = [eq(items.userId, userId)];
+  // Only sold/shipped rows contribute to the series. Filter in SQL so we
+  // never load listed/sourced rows for /profit charts.
+  const conds = [
+    eq(items.userId, userId),
+    or(eq(items.status, "sold"), eq(items.status, "shipped"))!,
+  ];
   if (acquisitionType) conds.push(eq(items.acquisitionType, acquisitionType));
+  if (range.from) conds.push(gte(items.soldAt, range.from));
+  if (range.to) conds.push(lte(items.soldAt, range.to));
   const sold = await db
     .select({
       id: items.id,
@@ -88,10 +95,9 @@ export async function computeProfitSeries(
     return i >= 0 && i < points.length ? i : -1;
   };
 
-  // Item-level sale data
+  // Item-level sale data. Status + soldAt are already filtered in SQL above.
   const itemBy: Record<string, { idx: number; cost: number; sold: number }> = {};
   for (const it of sold) {
-    if (it.status !== "sold" && it.status !== "shipped") continue;
     if (!it.soldAt) continue;
     const i = idxFor(it.soldAt as Date);
     if (i < 0) continue;
@@ -102,7 +108,8 @@ export async function computeProfitSeries(
     itemBy[it.id] = { idx: i, cost: c, sold: s };
   }
 
-  // Transactions for shipping
+  // Transactions for shipping — scope to the in-window item IDs so we don't
+  // pull every historical sell transaction for the user.
   const itemIds = Object.keys(itemBy);
   if (itemIds.length) {
     const txns = await db
@@ -115,6 +122,7 @@ export async function computeProfitSeries(
         and(
           eq(transactions.userId, userId),
           eq(transactions.transactionType, "sell"),
+          inArray(transactions.itemId, itemIds),
         ),
       );
     for (const t of txns) {

@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items, transactions, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
@@ -49,13 +49,16 @@ export async function computeBestsellers(
   range: DateRange,
   acquisitionType?: AcquisitionType,
 ) {
-  // Pull sold + shipped items in the user's scope; we filter by soldAt range
-  // in JS so the schema's soldAt nullable case stays explicit.
+  // Push the date range into SQL so we don't load every historical sale.
+  // listedAt nullability is filtered in JS (no SQL-side IS NOT NULL needed
+  // — Postgres uses the (user_id, status, sold_at) index here regardless).
   const conds = [
     eq(items.userId, userId),
     or(eq(items.status, "sold"), eq(items.status, "shipped"))!,
   ];
   if (acquisitionType) conds.push(eq(items.acquisitionType, acquisitionType));
+  if (range.from) conds.push(gte(items.soldAt, range.from));
+  if (range.to) conds.push(lte(items.soldAt, range.to));
   const rows = await db
     .select({
       id: items.id,
@@ -73,12 +76,7 @@ export async function computeBestsellers(
     .from(items)
     .where(and(...conds));
 
-  const inRange = rows.filter((r) => {
-    if (!r.listedAt || !r.soldAt) return false;
-    if (range.from && r.soldAt < range.from) return false;
-    if (range.to && r.soldAt > range.to) return false;
-    return true;
-  });
+  const inRange = rows.filter((r) => r.listedAt != null && r.soldAt != null);
 
   const ids = inRange.map((r) => r.id);
   const txns = ids.length

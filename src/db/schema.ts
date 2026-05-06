@@ -129,6 +129,12 @@ export const items = pgTable(
     index("items_user_created_idx").on(t.userId, t.createdAt),
     index("items_user_listed_idx").on(t.userId, t.listedAt),
     index("items_user_sold_idx").on(t.userId, t.soldAt),
+    // Analytics-shaped composite indexes (perf audit, May 2026):
+    // /profit and /bestsellers commonly read sold-or-shipped rows in a date
+    // range, optionally scoped to acquisitionType or sourceType.
+    index("items_user_status_sold_idx").on(t.userId, t.status, t.soldAt),
+    index("items_user_acquisition_idx").on(t.userId, t.acquisitionType),
+    index("items_user_source_idx").on(t.userId, t.sourceType),
   ],
 );
 

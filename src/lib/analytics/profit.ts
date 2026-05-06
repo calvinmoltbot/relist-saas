@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, inArray } from "drizzle-orm";
+import { and, eq, gte, lte, inArray, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { items, transactions, expenses, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
@@ -22,36 +22,56 @@ export async function computeProfit(
   range: DateRange,
   acquisitionType?: AcquisitionType,
 ) {
-  const conds = [eq(items.userId, userId)];
-  if (acquisitionType) conds.push(eq(items.acquisitionType, acquisitionType));
-  const allItems = await db
-    .select({
-      id: items.id,
-      name: items.name,
-      brand: items.brand,
-      category: items.category,
-      status: items.status,
-      costPrice: items.costPrice,
-      listedPrice: items.listedPrice,
-      soldPrice: items.soldPrice,
-      soldAt: items.soldAt,
-      listedAt: items.listedAt,
-      sourceType: items.sourceType,
-      acquisitionType: items.acquisitionType,
-    })
-    .from(items)
-    .where(and(...conds));
+  // Two queries: in-range sold/shipped (revenue side) and current stock
+  // (listed/sourced, no date filter). Splitting lets us push the date range
+  // into SQL for the sold side without losing the stock-value calculation.
+  const baseScope = [eq(items.userId, userId)];
+  if (acquisitionType) baseScope.push(eq(items.acquisitionType, acquisitionType));
 
-  const hasFilter = range.from != null || range.to != null;
-  const sold = allItems.filter((i) => {
-    if (i.status !== "sold" && i.status !== "shipped") return false;
-    if (hasFilter && !i.soldAt) return false;
-    if (range.from && i.soldAt && i.soldAt < range.from) return false;
-    if (range.to && i.soldAt && i.soldAt > range.to) return false;
-    return true;
-  });
-  const listed = allItems.filter((i) => i.status === "listed");
-  const sourced = allItems.filter((i) => i.status === "sourced");
+  const soldConds = [
+    ...baseScope,
+    or(eq(items.status, "sold"), eq(items.status, "shipped"))!,
+  ];
+  // When a range is set, also require soldAt IS NOT NULL — pre-existing
+  // behaviour treated null soldAt as out-of-range.
+  if (range.from) soldConds.push(gte(items.soldAt, range.from));
+  if (range.to) soldConds.push(lte(items.soldAt, range.to));
+
+  const stockConds = [
+    ...baseScope,
+    or(eq(items.status, "listed"), eq(items.status, "sourced"))!,
+  ];
+
+  const [soldRows, stockRows] = await Promise.all([
+    db
+      .select({
+        id: items.id,
+        name: items.name,
+        brand: items.brand,
+        category: items.category,
+        status: items.status,
+        costPrice: items.costPrice,
+        soldPrice: items.soldPrice,
+        soldAt: items.soldAt,
+        sourceType: items.sourceType,
+        acquisitionType: items.acquisitionType,
+      })
+      .from(items)
+      .where(and(...soldConds)),
+    db
+      .select({
+        id: items.id,
+        status: items.status,
+        costPrice: items.costPrice,
+        listedPrice: items.listedPrice,
+      })
+      .from(items)
+      .where(and(...stockConds)),
+  ]);
+
+  const sold = soldRows;
+  const listed = stockRows.filter((i) => i.status === "listed");
+  const sourced = stockRows.filter((i) => i.status === "sourced");
 
   const soldIds = sold.map((i) => i.id);
   const txns = soldIds.length

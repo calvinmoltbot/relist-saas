@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { items, transactions, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
 import { coerceMoney } from "@/lib/money";
+import { withUserItemsCache } from "./cache";
 
 export const MIN_GROUP_SIZE = 2;
 
@@ -44,7 +45,7 @@ function median(values: number[]): number {
     : sorted[mid];
 }
 
-export async function computeBestsellers(
+async function _computeBestsellers(
   userId: string,
   range: DateRange,
   acquisitionType?: AcquisitionType,
@@ -187,3 +188,5 @@ export async function computeBestsellers(
 
   return { overall, groups, topFastest, topProfit, minGroupSize: MIN_GROUP_SIZE };
 }
+
+export const computeBestsellers = withUserItemsCache(_computeBestsellers, "bestsellers");

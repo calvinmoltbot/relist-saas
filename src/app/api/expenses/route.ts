@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId, UnauthorizedError } from "@/lib/auth/getUserId";
 import { userScope } from "@/lib/db/scoped";
 import { resolveDateRange } from "@/lib/date-range";
+import { revalidateUserItems } from "@/lib/analytics/cache";
 
 export const runtime = "nodejs";
 
@@ -62,7 +63,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const [expense] = await userScope(u.userId).insertExpense({
+  const userId = u.userId;
+  const [expense] = await userScope(userId).insertExpense({
     category: parsed.data.category,
     description: parsed.data.description ?? null,
     amount: parsed.data.amount,
@@ -70,5 +72,6 @@ export async function POST(req: NextRequest) {
     incurredAt: new Date(parsed.data.incurredAt),
   });
 
+  revalidateUserItems(userId);
   return NextResponse.json({ expense }, { status: 201 });
 }

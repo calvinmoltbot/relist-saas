@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId, UnauthorizedError } from "@/lib/auth/getUserId";
 import { userScope } from "@/lib/db/scoped";
 import { coerceMoney } from "@/lib/money";
+import { revalidateUserItems } from "@/lib/analytics/cache";
 
 export const runtime = "nodejs";
 
@@ -125,6 +126,7 @@ export async function PATCH(
     });
   }
 
+  revalidateUserItems(u.userId);
   return NextResponse.json({ item: updated });
 }
 
@@ -139,5 +141,6 @@ export async function DELETE(
   if (rows.length === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  revalidateUserItems(u.userId);
   return NextResponse.json({ deleted: true });
 }

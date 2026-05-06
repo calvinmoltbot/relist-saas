@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { items, transactions, expenses, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
 import { coerceMoney } from "@/lib/money";
+import { withUserItemsCache } from "./cache";
 
 const num = coerceMoney;
 
@@ -33,7 +34,7 @@ function startOfDay(d: Date) {
  *
  * User-scoped: we filter by userId on every table read.
  */
-export async function computeProfitSeries(
+async function _computeProfitSeries(
   userId: string,
   range: DateRange,
   acquisitionType?: AcquisitionType,
@@ -150,3 +151,5 @@ export async function computeProfitSeries(
 
   return points;
 }
+
+export const computeProfitSeries = withUserItemsCache(_computeProfitSeries, "profit-series");

@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { userScope } from "@/lib/db/scoped";
 import { coerceMoney } from "@/lib/money";
+import { revalidateUserItems } from "@/lib/analytics/cache";
 
 type Status = "sourced" | "listed" | "sold" | "shipped";
 
@@ -70,6 +71,7 @@ export async function markItemSoldAction(
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
   revalidatePath("/dashboard");
+  revalidateUserItems(userId);
   return { ok: true };
 }
 
@@ -106,4 +108,5 @@ export async function transitionItemStatusAction(
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
   revalidatePath("/dashboard");
+  revalidateUserItems(userId);
 }

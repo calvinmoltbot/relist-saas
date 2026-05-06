@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId, UnauthorizedError } from "@/lib/auth/getUserId";
 import { userScope } from "@/lib/db/scoped";
+import { revalidateUserItems } from "@/lib/analytics/cache";
 
 export const runtime = "nodejs";
 
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ item: existing, updated: false });
     }
     const [updated] = await scope.updateItem(existing.id, updates);
+    revalidateUserItems(u.userId);
     return NextResponse.json({ item: updated, updated: true });
   }
 
@@ -132,5 +134,6 @@ export async function POST(req: NextRequest) {
     listedAt: status === "listed" ? now : null,
   });
 
+  revalidateUserItems(u.userId);
   return NextResponse.json({ item }, { status: 201 });
 }

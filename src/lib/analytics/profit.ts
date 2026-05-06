@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { items, transactions, expenses, type AcquisitionType } from "@/db/schema";
 import type { DateRange } from "@/lib/date-range";
 import { coerceMoney } from "@/lib/money";
+import { withUserItemsCache } from "./cache";
 
 const num = coerceMoney;
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -17,7 +18,7 @@ export type ProfitReport = Awaited<ReturnType<typeof computeProfit>>;
  * `acquisitionType` (optional) scopes every aggregate to bought-only or own-only
  * items. When omitted, both contribute. See issue #46.
  */
-export async function computeProfit(
+async function _computeProfit(
   userId: string,
   range: DateRange,
   acquisitionType?: AcquisitionType,
@@ -237,3 +238,5 @@ export async function computeProfit(
     })).sort((a, b) => b.amount - a.amount),
   };
 }
+
+export const computeProfit = withUserItemsCache(_computeProfit, "profit");

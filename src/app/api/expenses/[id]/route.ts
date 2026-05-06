@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId, UnauthorizedError } from "@/lib/auth/getUserId";
 import { userScope } from "@/lib/db/scoped";
+import { revalidateUserItems } from "@/lib/analytics/cache";
 
 export const runtime = "nodejs";
 
@@ -22,5 +23,6 @@ export async function DELETE(
   if (rows.length === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  revalidateUserItems(userId);
   return NextResponse.json({ deleted: true });
 }

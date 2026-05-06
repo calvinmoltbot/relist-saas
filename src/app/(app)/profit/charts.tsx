@@ -4,9 +4,6 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -110,64 +107,3 @@ export function RevenueVsCostsChart({ data }: { data: ProfitSeriesPoint[] }) {
   );
 }
 
-export type CostSlice = { name: string; value: number; color: string };
-
-export function CostCompositionChart({
-  data,
-  centerLabel,
-  centerValue,
-}: {
-  data: CostSlice[];
-  centerLabel: string;
-  centerValue: string;
-}) {
-  const total = data.reduce((a, b) => a + b.value, 0);
-  if (total === 0) {
-    return (
-      <div className="flex h-56 items-center justify-center text-sm text-[var(--text-muted)]">
-        No costs in this period.
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative h-56 w-full">
-      <ResponsiveContainer>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            innerRadius="62%"
-            outerRadius="92%"
-            paddingAngle={2}
-            stroke="var(--surface-card)"
-            strokeWidth={2}
-            isAnimationActive={false}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{
-              background: "var(--surface-card)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              fontSize: 12,
-            }}
-            formatter={(value, name) => [gbp(Number(value)), name as string]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-        <div className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-          {centerLabel}
-        </div>
-        <div className="font-display text-xl font-semibold tabular-nums text-[var(--text-primary)]">
-          {centerValue}
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -14,8 +14,8 @@ import {
   SegmentedControl,
   Tile,
 } from "@/components/ui";
-import { CostCompositionChart, RevenueVsCostsChart } from "./charts";
-import type { CostSlice } from "./charts";
+import { RevenueVsCostsChart } from "./charts";
+import { ItemsSearch } from "./ItemsSearch";
 import type { AcquisitionType } from "@/db/schema";
 
 const PRESETS = [
@@ -26,6 +26,8 @@ const PRESETS = [
   { value: "tax_year", label: "Tax year (UK)" },
   { value: "all", label: "All time" },
 ];
+
+const PAGE_SIZE = 25;
 
 const gbp = (n: number) =>
   `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -48,33 +50,95 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "own", label: "Own" },
 ];
 
-function buildProfitHref(preset: string, type: TypeFilter): string {
+type Tab = "items" | "category" | "source" | "month";
+const TAB_OPTIONS: { value: Tab; label: string }[] = [
+  { value: "items", label: "Items" },
+  { value: "category", label: "Category" },
+  { value: "source", label: "Source" },
+  { value: "month", label: "Month" },
+];
+
+type SortKey = "sold" | "cost" | "net" | "soldAt";
+type SortDir = "asc" | "desc";
+
+type Params = {
+  preset: string;
+  type: TypeFilter;
+  tab: Tab;
+  q: string;
+  sort: SortKey;
+  dir: SortDir;
+  page: number;
+};
+
+function buildHref(p: Params, overrides: Partial<Params>): string {
+  const merged = { ...p, ...overrides };
   const sp = new URLSearchParams();
-  if (preset && preset !== "this_month") sp.set("preset", preset);
-  if (type !== "all") sp.set("type", type);
+  if (merged.preset && merged.preset !== "this_month") sp.set("preset", merged.preset);
+  if (merged.type !== "all") sp.set("type", merged.type);
+  if (merged.tab !== "items") sp.set("tab", merged.tab);
+  if (merged.q) sp.set("q", merged.q);
+  if (merged.sort !== "net") sp.set("sort", merged.sort);
+  if (merged.dir !== "desc") sp.set("dir", merged.dir);
+  if (merged.page > 1) sp.set("page", String(merged.page));
   const qs = sp.toString();
   return qs ? `/profit?${qs}` : "/profit";
+}
+
+function readParams(raw: {
+  preset?: string;
+  type?: string;
+  tab?: string;
+  q?: string;
+  sort?: string;
+  dir?: string;
+  page?: string;
+}): Params {
+  const tab = (TAB_OPTIONS.map((t) => t.value).includes(raw.tab as Tab)
+    ? raw.tab
+    : "items") as Tab;
+  const type = (TYPE_OPTIONS.map((t) => t.value).includes(raw.type as TypeFilter)
+    ? raw.type
+    : "all") as TypeFilter;
+  const sort = (["sold", "cost", "net", "soldAt"].includes(raw.sort ?? "")
+    ? raw.sort
+    : "net") as SortKey;
+  const dir = (raw.dir === "asc" ? "asc" : "desc") as SortDir;
+  const pageNum = Math.max(1, Number(raw.page) || 1);
+  return {
+    preset: raw.preset ?? "this_month",
+    type,
+    tab,
+    q: (raw.q ?? "").trim(),
+    sort,
+    dir,
+    page: pageNum,
+  };
 }
 
 export default async function ProfitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; type?: string }>;
+  searchParams: Promise<{
+    preset?: string;
+    type?: string;
+    tab?: string;
+    q?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+  }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const { preset = "this_month", type = "all" } = await searchParams;
-  const presetKey = preset === "all" ? "" : preset;
-  const range = resolveDateRange(presetKey || null, null, null);
+  const raw = await searchParams;
+  const p = readParams(raw);
 
-  const typeFilter: TypeFilter = (
-    TYPE_OPTIONS.map((o) => o.value).includes(type as TypeFilter)
-      ? (type as TypeFilter)
-      : "all"
-  );
+  const presetKey = p.preset === "all" ? "" : p.preset;
+  const range = resolveDateRange(presetKey || null, null, null);
   const acquisitionFilter: AcquisitionType | undefined =
-    typeFilter === "all" ? undefined : (typeFilter as AcquisitionType);
+    p.type === "all" ? undefined : (p.type as AcquisitionType);
 
   const [r, series, itemCount] = await Promise.all([
     computeProfit(userId, range, acquisitionFilter),
@@ -85,40 +149,55 @@ export default async function ProfitPage({
   const isFirstRun = itemCount === 0;
   const s = r.summary;
 
-  // Resolve thumbnail availability for the items-in-range table.
-  const itemIds = r.itemProfits.map((p) => p.id);
-  const thumbMap = await userScope(userId).getItemHasThumbnailMap(itemIds);
+  // ----- Items tab: filter, sort, paginate in-memory -----
+  const qLower = p.q.toLowerCase();
+  const filtered = qLower
+    ? r.itemProfits.filter((it) => it.name.toLowerCase().includes(qLower))
+    : r.itemProfits;
+  const sorted = [...filtered].sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    switch (p.sort) {
+      case "sold":
+        av = a.sold;
+        bv = b.sold;
+        break;
+      case "cost":
+        av = a.cost;
+        bv = b.cost;
+        break;
+      case "soldAt":
+        av = a.soldAt ?? "";
+        bv = b.soldAt ?? "";
+        break;
+      case "net":
+      default:
+        av = a.netProfit;
+        bv = b.netProfit;
+    }
+    if (av < bv) return p.dir === "asc" ? -1 : 1;
+    if (av > bv) return p.dir === "asc" ? 1 : -1;
+    return 0;
+  });
+  const totalItems = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const currentPage = Math.min(p.page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = sorted.slice(pageStart, pageStart + PAGE_SIZE);
 
-  // Wardrobe (own) revenue context. Only meaningful in "all" mode and only when
-  // both bought and own contributed.
+  // Thumbnails for the visible page only.
+  const thumbMap = await userScope(userId).getItemHasThumbnailMap(
+    pageRows.map((row) => row.id),
+  );
+
+  // Wardrobe context — only meaningful when both bought + own contributed.
   const ownRev = r.byAcquisition.own.revenue;
   const ownCount = r.byAcquisition.own.count;
   const boughtRev = r.byAcquisition.bought.revenue;
-  const showWardrobeContext =
-    typeFilter === "all" && ownRev > 0 && boughtRev > 0;
-
-  const baseCostSlices: CostSlice[] = [
-    { name: "Cost of goods", value: s.cost, color: "var(--brand)" },
-    { name: "Shipping", value: s.shipping, color: "var(--accent-amber)" },
-    { name: "Other expenses", value: s.totalExpenses, color: "var(--accent-rose)" },
-  ].filter((slice) => slice.value > 0);
-  const costSlices: CostSlice[] = showWardrobeContext
-    ? [
-        ...baseCostSlices,
-        // Quiet "wardrobe revenue" annotation — surfaces own-goods contribution
-        // alongside the cost composition. Muted slate to keep brand teal on
-        // bought-revenue elsewhere.
-        {
-          name: "Wardrobe revenue",
-          value: ownRev,
-          color: "var(--text-muted)",
-        },
-      ]
-    : baseCostSlices;
-  const totalCosts = s.cost + s.shipping + s.totalExpenses;
+  const showWardrobeContext = p.type === "all" && ownRev > 0 && boughtRev > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Profit"
         subtitle={formatRangeSubtitle(range.from, range.to)}
@@ -126,20 +205,21 @@ export default async function ProfitPage({
           <div className="flex items-center gap-3">
             <SegmentedControl
               options={TYPE_OPTIONS}
-              active={typeFilter}
+              active={p.type}
               tone="brand"
-              hrefFor={(v) => buildProfitHref(preset, v)}
+              hrefFor={(v) => buildHref(p, { type: v, page: 1 })}
             />
             <form className="flex items-center gap-2 text-sm">
-              <input type="hidden" name="type" value={typeFilter} />
+              {p.type !== "all" && <input type="hidden" name="type" value={p.type} />}
+              {p.tab !== "items" && <input type="hidden" name="tab" value={p.tab} />}
               <select
                 name="preset"
-                defaultValue={preset}
+                defaultValue={p.preset}
                 className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)]"
               >
-                {PRESETS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
+                {PRESETS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>
@@ -161,266 +241,417 @@ export default async function ProfitPage({
         />
       )}
 
-      {/* What came in */}
-      <section className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          What came in
-        </h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Tile
-            label="Net profit"
-            value={gbp(s.netProfit)}
-            sub={`${s.avgMargin}% avg margin`}
-            tone="emerald"
-            icon={<TrendIcon />}
-          />
-          <Tile
-            label="Revenue"
-            value={gbp(s.revenue)}
-            sub={`${s.itemsSold} items sold`}
+      {/* Tile row — single grid, 7 metrics */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+        <Tile
+          label="Net profit"
+          value={gbp(s.netProfit)}
+          sub={`${gbp(s.grossProfit)} gross · ${s.avgMargin}% margin`}
+          tone="emerald"
+          icon={<TrendIcon />}
+        />
+        <Tile
+          label="Revenue"
+          value={gbp(s.revenue)}
+          sub={`${s.itemsSold} items sold`}
+          tone="brand"
+          icon={<MoneyIcon />}
+        />
+        <Tile
+          label="Items sold"
+          value={num0(s.itemsSold)}
+          sub={s.itemsSold ? `${gbp(s.avgProfitPerItem)} avg` : "—"}
+          tone="violet"
+          icon={<TagIcon />}
+        />
+        <Tile
+          label="Sell-through"
+          value={`${s.sellThroughRate}%`}
+          sub={`${s.itemsListed} still listed`}
+          tone="amber"
+          icon={<RotateIcon />}
+        />
+        <Tile
+          label="Cost of goods"
+          value={gbp(s.cost)}
+          tone="brand"
+          icon={<BagIcon />}
+        />
+        <Tile
+          label="Shipping"
+          value={gbp(s.shipping)}
+          tone="amber"
+          icon={<TruckIcon />}
+        />
+        <Tile
+          label="Other expenses"
+          value={gbp(s.totalExpenses)}
+          tone="rose"
+          icon={<ReceiptIcon />}
+        />
+      </section>
+
+      {showWardrobeContext && (
+        <p className="-mt-3 text-xs text-[var(--text-muted)]">
+          Of which {gbp(ownRev)} ({ownCount}{" "}
+          {ownCount === 1 ? "item" : "items"}) was from your own wardrobe.
+        </p>
+      )}
+
+      {/* Single chart row */}
+      <Card>
+        <CardHeader
+          title="Revenue vs costs over time"
+          description="Daily revenue, cost of goods and net profit across the selected window."
+        />
+        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--text-secondary)]">
+          <LegendDot color="var(--brand)" label="Revenue" />
+          <LegendDot color="var(--accent-rose)" label="Cost" />
+          <LegendDot color="var(--accent-emerald)" label="Net profit" />
+        </div>
+        <div className="mt-2">
+          <RevenueVsCostsChart data={series} />
+        </div>
+      </Card>
+
+      {/* Tabbed analytical section */}
+      <Card padded={false}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] p-4">
+          <SegmentedControl
+            options={TAB_OPTIONS}
+            active={p.tab}
             tone="brand"
-            icon={<MoneyIcon />}
+            hrefFor={(v) => buildHref(p, { tab: v, page: 1 })}
           />
-          <Tile
-            label="Items sold"
-            value={num0(s.itemsSold)}
-            sub={s.itemsSold ? `${gbp(s.avgProfitPerItem)} avg profit` : "—"}
-            tone="violet"
-            icon={<TagIcon />}
-          />
-          <Tile
-            label="Sell-through"
-            value={`${s.sellThroughRate}%`}
-            sub={`${s.itemsListed} still listed`}
-            tone="amber"
-            icon={<RotateIcon />}
-          />
+          {p.tab === "items" && <ItemsSearch initial={p.q} />}
         </div>
-      </section>
 
-      {/* What went out */}
-      <section className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          What went out
-        </h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          <Tile
-            label="Cost of goods"
-            value={gbp(s.cost)}
-            tone="brand"
-            icon={<BagIcon />}
+        {p.tab === "items" && (
+          <ItemsTab
+            params={p}
+            rows={pageRows}
+            totalItems={totalItems}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageStart={pageStart}
+            thumbMap={thumbMap}
           />
-          <Tile
-            label="Shipping"
-            value={gbp(s.shipping)}
-            tone="amber"
-            icon={<TruckIcon />}
+        )}
+        {p.tab === "category" && (
+          <BreakdownTable
+            dimension="category"
+            rows={r.byCategory.map((c) => ({ key: c.category, ...c }))}
           />
-          <Tile
-            label="Other expenses"
-            value={gbp(s.totalExpenses)}
-            tone="rose"
-            icon={<ReceiptIcon />}
+        )}
+        {p.tab === "source" && (
+          <BreakdownTable
+            dimension="source"
+            rows={r.bySource.map((c) => ({ key: c.source, ...c }))}
           />
-        </div>
-      </section>
-
-      {/* Charts row: line chart (2/3), donut (1/3), summary card */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader
-              title="Revenue vs costs over time"
-              description="Daily revenue, cost of goods and net profit across the selected window."
-            />
-            <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-[var(--text-secondary)]">
-              <LegendDot color="var(--brand)" label="Revenue" />
-              <LegendDot color="var(--accent-rose)" label="Cost" />
-              <LegendDot color="var(--accent-emerald)" label="Net profit" />
-            </div>
-            <div className="mt-2">
-              <RevenueVsCostsChart data={series} />
-            </div>
-          </Card>
-        </div>
-        <div className="space-y-6">
-          <Card>
-            <CardHeader title="Cost composition" />
-            <div className="mt-2">
-              <CostCompositionChart
-                data={costSlices}
-                centerLabel="Total costs"
-                centerValue={gbp(totalCosts)}
-              />
-            </div>
-            {costSlices.length > 0 && (
-              <ul className="mt-3 space-y-1.5 text-xs text-[var(--text-secondary)]">
-                {costSlices.map((c) => (
-                  <li key={c.name} className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ background: c.color }}
-                        aria-hidden
-                      />
-                      {c.name}
-                    </span>
-                    <span className="tabular-nums text-[var(--text-primary)]">{gbp(c.value)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </div>
-      </section>
-
-      {/* Summary card */}
-      <section>
-        <Card>
-          <CardHeader title="Summary" description="Totals for the selected period." />
-          <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-4">
-            <SummaryRow label="Revenue" value={gbp(s.revenue)} />
-            <SummaryRow label="Gross profit" value={gbp(s.grossProfit)} />
-            <SummaryRow
-              label="Net profit"
-              value={gbp(s.netProfit)}
-              tone={s.netProfit >= 0 ? "positive" : "negative"}
-            />
-            <SummaryRow label="Avg margin" value={`${s.avgMargin}%`} />
-            <SummaryRow label="Cost of goods" value={gbp(s.cost)} />
-            <SummaryRow label="Shipping" value={gbp(s.shipping)} />
-            <SummaryRow label="Other expenses" value={gbp(s.totalExpenses)} />
-          </dl>
-          {typeFilter === "all" && ownRev > 0 && (
-            <p className="mt-4 text-xs text-[var(--text-muted)]">
-              Of which {gbp(ownRev)} ({ownCount}{" "}
-              {ownCount === 1 ? "item" : "items"}) was from your own goods.
-            </p>
-          )}
-        </Card>
-      </section>
-
-      {/* Three breakdown tables + items in range */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <BreakdownCard
-          title="By category"
-          rows={r.byCategory.map((c) => ({ key: c.category, ...c }))}
-        />
-        <BreakdownCard
-          title="By source"
-          rows={r.bySource.map((c) => ({ key: c.source, ...c }))}
-        />
-        <BreakdownCard
-          title="By month"
-          rows={r.byMonth.map((c) => ({ key: c.month, ...c }))}
-        />
-        <Card padded={false}>
-          <div className="flex items-center justify-between p-5 pb-3">
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">Items in range</h3>
-            <span className="text-xs text-[var(--text-muted)]">
-              {r.itemProfits.length} {r.itemProfits.length === 1 ? "item" : "items"}
-            </span>
-          </div>
-          {r.itemProfits.length === 0 ? (
-            <p className="px-5 pb-5 text-sm text-[var(--text-muted)]">
-              No sales in this period.
-            </p>
-          ) : (
-            <div className="max-h-[420px] overflow-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-[var(--surface-muted)]">
-                  <tr className="border-y border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-                    <th className="py-2 pl-5 pr-3 font-medium">Item</th>
-                    <th className="py-2 pr-3 text-right font-medium">Sold</th>
-                    <th className="py-2 pr-3 text-right font-medium">Cost</th>
-                    <th className="py-2 pr-3 text-right font-medium">Net</th>
-                    <th className="py-2 pr-5 font-medium">Sold at</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.itemProfits.map((p) => {
-                    const thumbInfo = thumbMap.get(p.id);
-                    const hasThumbnail = thumbInfo?.hasThumbnail ?? false;
-                    const thumbnailUrl = thumbInfo?.thumbnailUrl ?? null;
-                    return (
-                      <tr
-                        key={p.id}
-                        className="border-b border-[var(--border-subtle)] last:border-b-0 hover:bg-[var(--surface-muted)]/60"
-                      >
-                        <td className="py-2.5 pl-5 pr-3">
-                          <Link
-                            href={`/inventory/${p.id}`}
-                            className="flex items-center gap-3"
-                          >
-                            <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
-                              {hasThumbnail ? (
-                                <Image
-                                  src={thumbnailUrl ?? ""}
-                                  alt=""
-                                  width={36}
-                                  height={36}
-                                  className="h-full w-full object-cover"
-                                  unoptimized
-                                />
-                              ) : (
-                                <span className="m-auto text-[9px] uppercase text-[var(--text-muted)]">
-                                  no img
-                                </span>
-                              )}
-                            </span>
-                            <span className="font-medium text-[var(--text-primary)] hover:underline">
-                              {p.name}
-                            </span>
-                          </Link>
-                        </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums">{gbp(p.sold)}</td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
-                          {gbp(p.cost)}
-                        </td>
-                        <td
-                          className={`py-2.5 pr-3 text-right font-semibold tabular-nums ${
-                            p.netProfit >= 0
-                              ? "text-[var(--accent-emerald-soft-fg)]"
-                              : "text-[var(--accent-rose-soft-fg)]"
-                          }`}
-                        >
-                          {gbp(p.netProfit)}
-                        </td>
-                        <td className="py-2.5 pr-5 text-xs text-[var(--text-muted)]">
-                          {p.soldAt ? new Date(p.soldAt).toLocaleDateString("en-GB") : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </section>
+        )}
+        {p.tab === "month" && (
+          <BreakdownTable
+            dimension="month"
+            rows={r.byMonth.map((c) => ({ key: c.month, ...c }))}
+          />
+        )}
+      </Card>
     </div>
   );
 }
 
-function SummaryRow({
-  label,
-  value,
-  tone,
+// ---------------------------------------------------------------------------
+
+function ItemsTab({
+  params,
+  rows,
+  totalItems,
+  currentPage,
+  totalPages,
+  pageStart,
+  thumbMap,
 }: {
-  label: string;
-  value: string;
-  tone?: "positive" | "negative";
+  params: Params;
+  rows: Array<{
+    id: string;
+    name: string;
+    sold: number;
+    cost: number;
+    netProfit: number;
+    soldAt: string | null;
+  }>;
+  totalItems: number;
+  currentPage: number;
+  totalPages: number;
+  pageStart: number;
+  thumbMap: Map<string, { hasThumbnail: boolean; thumbnailUrl: string | null }>;
 }) {
-  const valueClass =
-    tone === "positive"
-      ? "text-[var(--accent-emerald-soft-fg)]"
-      : tone === "negative"
-        ? "text-[var(--accent-rose-soft-fg)]"
-        : "text-[var(--text-primary)]";
+  if (totalItems === 0) {
+    return (
+      <p className="p-6 text-sm text-[var(--text-muted)]">
+        {params.q
+          ? `No items match "${params.q}".`
+          : "No sales in this period."}
+      </p>
+    );
+  }
+
+  const showingFrom = pageStart + 1;
+  const showingTo = pageStart + rows.length;
+
   return (
-    <div className="flex flex-col">
-      <dt className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
-      <dd className={`mt-1 text-lg font-semibold tabular-nums ${valueClass}`}>{value}</dd>
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+              <th className="py-2 pl-5 pr-3 font-medium">Item</th>
+              <SortableHeader
+                params={params}
+                sortKey="sold"
+                align="right"
+                label="Sold"
+              />
+              <SortableHeader
+                params={params}
+                sortKey="cost"
+                align="right"
+                label="Cost"
+              />
+              <SortableHeader
+                params={params}
+                sortKey="net"
+                align="right"
+                label="Net"
+              />
+              <SortableHeader
+                params={params}
+                sortKey="soldAt"
+                align="left"
+                label="Sold at"
+                last
+              />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const t = thumbMap.get(row.id);
+              return (
+                <tr
+                  key={row.id}
+                  className="border-b border-[var(--border-subtle)] last:border-b-0 hover:bg-[var(--surface-muted)]/60"
+                >
+                  <td className="py-2.5 pl-5 pr-3">
+                    <Link
+                      href={`/inventory/${row.id}`}
+                      className="flex items-center gap-3"
+                    >
+                      <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
+                        {t?.hasThumbnail ? (
+                          <Image
+                            src={t.thumbnailUrl ?? ""}
+                            alt=""
+                            width={36}
+                            height={36}
+                            className="h-full w-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <span className="m-auto text-[9px] uppercase text-[var(--text-muted)]">
+                            no img
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-medium text-[var(--text-primary)] hover:underline">
+                        {row.name}
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums">
+                    {gbp(row.sold)}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
+                    {gbp(row.cost)}
+                  </td>
+                  <td
+                    className={`py-2.5 pr-3 text-right font-semibold tabular-nums ${
+                      row.netProfit >= 0
+                        ? "text-[var(--accent-emerald-soft-fg)]"
+                        : "text-[var(--accent-rose-soft-fg)]"
+                    }`}
+                  >
+                    {gbp(row.netProfit)}
+                  </td>
+                  <td className="py-2.5 pr-5 text-xs text-[var(--text-muted)]">
+                    {row.soldAt
+                      ? new Date(row.soldAt).toLocaleDateString("en-GB")
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-5 py-3 text-xs text-[var(--text-muted)]">
+        <span className="tabular-nums">
+          Showing {showingFrom.toLocaleString("en-GB")}–
+          {showingTo.toLocaleString("en-GB")} of{" "}
+          {totalItems.toLocaleString("en-GB")}
+        </span>
+        <div className="flex items-center gap-2">
+          <PageLink
+            href={buildHref(params, { page: currentPage - 1 })}
+            disabled={currentPage <= 1}
+            label="← Prev"
+          />
+          <span className="tabular-nums">
+            Page {currentPage} of {totalPages}
+          </span>
+          <PageLink
+            href={buildHref(params, { page: currentPage + 1 })}
+            disabled={currentPage >= totalPages}
+            label="Next →"
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SortableHeader({
+  params,
+  sortKey,
+  label,
+  align,
+  last = false,
+}: {
+  params: Params;
+  sortKey: SortKey;
+  label: string;
+  align: "left" | "right";
+  last?: boolean;
+}) {
+  const isActive = params.sort === sortKey;
+  const nextDir: SortDir = isActive && params.dir === "desc" ? "asc" : "desc";
+  const arrow = isActive ? (params.dir === "desc" ? " ↓" : " ↑") : "";
+  const padR = last ? "pr-5" : "pr-3";
+  return (
+    <th
+      className={`py-2 ${padR} font-medium ${align === "right" ? "text-right" : ""}`}
+    >
+      <Link
+        href={buildHref(params, { sort: sortKey, dir: nextDir, page: 1 })}
+        className={`inline-flex items-center hover:text-[var(--text-primary)] ${
+          isActive ? "text-[var(--text-primary)]" : ""
+        }`}
+      >
+        {label}
+        {arrow}
+      </Link>
+    </th>
+  );
+}
+
+function PageLink({
+  href,
+  disabled,
+  label,
+}: {
+  href: string;
+  disabled: boolean;
+  label: string;
+}) {
+  if (disabled) {
+    return (
+      <span className="rounded-[var(--radius-sm)] px-2 py-1 text-[var(--text-muted)] opacity-50">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="rounded-[var(--radius-sm)] px-2 py-1 hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function BreakdownTable({
+  dimension,
+  rows,
+}: {
+  dimension: string;
+  rows: { key: string; revenue: number; profit: number; count: number }[];
+}) {
+  if (rows.length === 0) {
+    return <p className="p-6 text-sm text-[var(--text-muted)]">No data.</p>;
+  }
+  const totalRev = rows.reduce((a, b) => a + b.revenue, 0);
+  const totalProfit = rows.reduce((a, b) => a + b.profit, 0);
+  const totalCount = rows.reduce((a, b) => a + b.count, 0);
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <th className="py-2 pl-5 pr-3 font-medium capitalize">{dimension}</th>
+            <th className="py-2 pr-3 text-right font-medium">Items</th>
+            <th className="py-2 pr-3 text-right font-medium">Revenue</th>
+            <th className="py-2 pr-5 text-right font-medium">Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.key}
+              className="border-b border-[var(--border-subtle)] last:border-b-0"
+            >
+              <td className="py-2.5 pl-5 pr-3 text-[var(--text-primary)]">
+                {row.key}
+              </td>
+              <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
+                {row.count}
+              </td>
+              <td className="py-2.5 pr-3 text-right tabular-nums">
+                {gbp(row.revenue)}
+              </td>
+              <td
+                className={`py-2.5 pr-5 text-right font-semibold tabular-nums ${
+                  row.profit >= 0
+                    ? "text-[var(--accent-emerald-soft-fg)]"
+                    : "text-[var(--accent-rose-soft-fg)]"
+                }`}
+              >
+                {gbp(row.profit)}
+              </td>
+            </tr>
+          ))}
+          <tr className="bg-[var(--surface-muted)]/60">
+            <td className="py-2.5 pl-5 pr-3 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+              Total
+            </td>
+            <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
+              {totalCount}
+            </td>
+            <td className="py-2.5 pr-3 text-right font-semibold tabular-nums">
+              {gbp(totalRev)}
+            </td>
+            <td
+              className={`py-2.5 pr-5 text-right font-semibold tabular-nums ${
+                totalProfit >= 0
+                  ? "text-[var(--accent-emerald-soft-fg)]"
+                  : "text-[var(--accent-rose-soft-fg)]"
+              }`}
+            >
+              {gbp(totalProfit)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -435,85 +666,6 @@ function LegendDot({ color, label }: { color: string; label: string }) {
       />
       {label}
     </span>
-  );
-}
-
-function BreakdownCard({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: { key: string; revenue: number; profit: number; count: number }[];
-}) {
-  const dimension = title.replace("By ", "");
-  const totalRev = rows.reduce((a, b) => a + b.revenue, 0);
-  const totalProfit = rows.reduce((a, b) => a + b.profit, 0);
-  const totalCount = rows.reduce((a, b) => a + b.count, 0);
-  return (
-    <Card padded={false}>
-      <div className="p-5 pb-3">
-        <h3 className="text-base font-semibold text-[var(--text-primary)] capitalize">
-          {title}
-        </h3>
-      </div>
-      {rows.length === 0 ? (
-        <p className="px-5 pb-5 text-sm text-[var(--text-muted)]">No data.</p>
-      ) : (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-              <th className="py-2 pl-5 pr-3 font-medium capitalize">{dimension}</th>
-              <th className="py-2 pr-3 text-right font-medium">Items</th>
-              <th className="py-2 pr-3 text-right font-medium">Revenue</th>
-              <th className="py-2 pr-5 text-right font-medium">Profit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.key}
-                className="border-b border-[var(--border-subtle)] last:border-b-0"
-              >
-                <td className="py-2.5 pl-5 pr-3 text-[var(--text-primary)]">{row.key}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
-                  {row.count}
-                </td>
-                <td className="py-2.5 pr-3 text-right tabular-nums">{gbp(row.revenue)}</td>
-                <td
-                  className={`py-2.5 pr-5 text-right font-semibold tabular-nums ${
-                    row.profit >= 0
-                      ? "text-[var(--accent-emerald-soft-fg)]"
-                      : "text-[var(--accent-rose-soft-fg)]"
-                  }`}
-                >
-                  {gbp(row.profit)}
-                </td>
-              </tr>
-            ))}
-            <tr className="bg-[var(--surface-muted)]/60">
-              <td className="py-2.5 pl-5 pr-3 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                Total
-              </td>
-              <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--text-secondary)]">
-                {totalCount}
-              </td>
-              <td className="py-2.5 pr-3 text-right font-semibold tabular-nums">
-                {gbp(totalRev)}
-              </td>
-              <td
-                className={`py-2.5 pr-5 text-right font-semibold tabular-nums ${
-                  totalProfit >= 0
-                    ? "text-[var(--accent-emerald-soft-fg)]"
-                    : "text-[var(--accent-rose-soft-fg)]"
-                }`}
-              >
-                {gbp(totalProfit)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      )}
-    </Card>
   );
 }
 

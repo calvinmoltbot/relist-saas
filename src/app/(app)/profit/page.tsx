@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import { RevenueVsCostsChart } from "./charts";
 import { ItemsSearch } from "./ItemsSearch";
+import { PresetSelect } from "./PresetSelect";
 import type { AcquisitionType } from "@/db/schema";
 
 const PRESETS = [
@@ -209,27 +210,7 @@ export default async function ProfitPage({
               tone="brand"
               hrefFor={(v) => buildHref(p, { type: v, page: 1 })}
             />
-            <form className="flex items-center gap-2 text-sm">
-              {p.type !== "all" && <input type="hidden" name="type" value={p.type} />}
-              {p.tab !== "items" && <input type="hidden" name="tab" value={p.tab} />}
-              <select
-                name="preset"
-                defaultValue={p.preset}
-                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)]"
-              >
-                {PRESETS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm font-medium hover:bg-[var(--surface-muted)]"
-              >
-                Apply
-              </button>
-            </form>
+            <PresetSelect options={PRESETS} value={p.preset} />
           </div>
         }
       />

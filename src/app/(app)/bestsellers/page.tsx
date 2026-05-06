@@ -16,6 +16,7 @@ import {
   SegmentedControl,
   Tile,
 } from "@/components/ui";
+import { PresetSelect } from "./PresetSelect";
 
 const PRESETS = [
   { value: "this_month", label: "This month" },
@@ -147,29 +148,7 @@ export default async function BestsellersPage({
                 buildHref({ preset, dim: dimension, sort: sortKey, type: v })
               }
             />
-          <form className="flex items-center gap-2 text-sm">
-            <input type="hidden" name="dim" value={dimension} />
-            <input type="hidden" name="sort" value={sortKey} />
-            <input type="hidden" name="type" value={typeFilter} />
-            <select
-              name="preset"
-              defaultValue={preset}
-              className="h-9 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm"
-              aria-label="Date range preset"
-            >
-              {PRESETS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="inline-flex h-9 items-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
-            >
-              Apply
-            </button>
-          </form>
+          <PresetSelect options={PRESETS} value={preset} />
           </div>
         }
       />

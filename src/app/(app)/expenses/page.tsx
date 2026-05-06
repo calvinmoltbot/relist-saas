@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { userScope } from "@/lib/db/scoped";
 import { resolveDateRange } from "@/lib/date-range";
 import { ExpensesClient } from "./client";
+import { PresetSelect } from "./PresetSelect";
 
 const PRESETS = [
   { value: "", label: "All time" },
@@ -42,20 +43,7 @@ export default async function ExpensesPage({
             Business costs: packaging and shipping supplies.
           </p>
         </div>
-        <form className="flex gap-2 text-sm">
-          <select
-            name="preset"
-            defaultValue={preset}
-            className="rounded-md border px-2 py-1"
-          >
-            {PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          <button className="rounded-md border px-3 py-1">Apply</button>
-        </form>
+        <PresetSelect options={PRESETS} value={preset} />
       </header>
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">

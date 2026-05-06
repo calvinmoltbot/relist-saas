@@ -11,6 +11,7 @@ import {
   ViewToggle,
 } from "@/components/ui";
 import { StatusTransitionButton } from "./StatusTransitionButton";
+import { FiltersBar } from "./FiltersBar";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "All statuses" },
@@ -104,56 +105,13 @@ export default async function InventoryPage({
       />
 
       <Card padded className="p-4">
-        <form className="flex flex-wrap items-center gap-2 text-sm">
-          <input
-            type="search"
-            name="search"
-            defaultValue={sp.search ?? ""}
-            placeholder="Search name, brand, SKU…"
-            className="min-w-[220px] flex-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
-          />
-          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span className="hidden sm:inline">Status</span>
-            <select
-              name="status"
-              defaultValue={statusParam}
-              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--brand)] focus:outline-none"
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span className="hidden sm:inline">Sort by</span>
-            <select
-              name="sort"
-              defaultValue={sort}
-              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--brand)] focus:outline-none"
-            >
-              <option value="date">Newest</option>
-              <option value="price">Price</option>
-              <option value="brand">Brand</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-1.5 px-1 text-xs text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              name="incomplete"
-              value="1"
-              defaultChecked={sp.incomplete === "1"}
-              className="h-3.5 w-3.5 rounded border-[var(--border-default)] text-[var(--brand)]"
-            />
-            Incomplete only
-          </label>
-          {/* preserve view in form submissions */}
-          {view === "grid" && <input type="hidden" name="view" value="grid" />}
-          <button className="ml-auto rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)]">
-            Apply
-          </button>
-        </form>
+        <FiltersBar
+          initialSearch={sp.search ?? ""}
+          initialStatus={statusParam}
+          initialSort={sort}
+          initialIncomplete={sp.incomplete === "1"}
+          statusOptions={STATUS_OPTIONS}
+        />
       </Card>
 
       <div className="flex items-center justify-end">

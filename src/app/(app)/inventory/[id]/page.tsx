@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -6,6 +7,7 @@ import { Card, StatusPill } from "@/components/ui";
 import { ItemActions } from "./actions";
 import { ItemPhotos } from "./photos";
 import { AcquisitionChip } from "./AcquisitionChip";
+import { EditDetails } from "./edit-details";
 
 function gbp(n: string | null) {
   return n == null ? "—" : `£${parseFloat(n).toFixed(2)}`;
@@ -114,17 +116,21 @@ export default async function ItemDetail({
         </div>
       </div>
 
-      {/* Description — below the fold */}
-      {item.description && (
-        <Card>
-          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">
-            Description
-          </h2>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--text-primary)]">
-            {item.description}
-          </p>
-        </Card>
-      )}
+      {/* Listing details — editable; supports ?focus=<field> deep-link from Health */}
+      <Suspense fallback={null}>
+        <EditDetails
+          itemId={item.id}
+          initial={{
+            name: item.name,
+            brand: item.brand,
+            category: item.category,
+            size: item.size,
+            description: item.description,
+            vintedUrl: item.vintedUrl,
+            photoCount: Array.isArray(item.photoUrls) ? item.photoUrls.length : 0,
+          }}
+        />
+      </Suspense>
 
       {/* Transactions — below the fold */}
       <Card padded={false}>

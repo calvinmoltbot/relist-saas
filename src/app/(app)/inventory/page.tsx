@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { StatusTransitionButton } from "./StatusTransitionButton";
 import { FiltersBar } from "./FiltersBar";
+import { scoreItem, type FieldStatus } from "@/lib/inventory/completeness";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "All statuses" },
@@ -65,6 +66,20 @@ export default async function InventoryPage({
   ]);
 
   const { rows, total, pageCount } = result;
+  const showMissingCol = sp.incomplete === "1";
+  const enriched: Row[] = rows.map((r) => {
+    if (!showMissingCol) return r as unknown as Row;
+    const { missing } = scoreItem({
+      name: r.name,
+      brand: r.brand,
+      category: r.category,
+      size: r.size,
+      description: (r as { description?: string | null }).description ?? null,
+      photoCount: Number((r as { photoCount?: number | null }).photoCount ?? 0),
+      vintedUrl: (r as { vintedUrl?: string | null }).vintedUrl ?? null,
+    });
+    return { ...(r as unknown as Row), missing };
+  });
   const filtersApplied =
     statusParam !== "listed" ||
     !!sp.search?.trim() ||
@@ -139,9 +154,9 @@ export default async function InventoryPage({
           </Card>
         )
       ) : view === "grid" ? (
-        <GridView rows={rows} />
+        <GridView rows={enriched} />
       ) : (
-        <TableView rows={rows} />
+        <TableView rows={enriched} showMissing={showMissingCol} />
       )}
 
       {rows.length > 0 && pageCount > 1 && (
@@ -187,6 +202,8 @@ type Row = {
   soldPrice: string | null;
   hasThumbnail: boolean;
   thumbnailUrl: string | null;
+  /** Populated by the inventory page when `incomplete=1`. */
+  missing?: FieldStatus[];
 };
 
 function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
@@ -214,7 +231,13 @@ function Thumb({ row, size = 40 }: { row: Row; size?: number }) {
   );
 }
 
-function TableView({ rows }: { rows: Row[] }) {
+function TableView({
+  rows,
+  showMissing = false,
+}: {
+  rows: Row[];
+  showMissing?: boolean;
+}) {
   return (
     <Card padded={false} className="overflow-visible">
       <div>
@@ -223,8 +246,14 @@ function TableView({ rows }: { rows: Row[] }) {
             <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)]/40 text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
               <th className="w-16 py-3 pl-4 pr-2 font-medium">Thumbnail</th>
               <th className="py-3 pr-4 font-medium">Item</th>
-              <th className="py-3 pr-4 font-medium">Brand</th>
-              <th className="py-3 pr-4 font-medium">Size</th>
+              {showMissing ? (
+                <th className="py-3 pr-4 font-medium">Missing</th>
+              ) : (
+                <>
+                  <th className="py-3 pr-4 font-medium">Brand</th>
+                  <th className="py-3 pr-4 font-medium">Size</th>
+                </>
+              )}
               <th className="py-3 pr-4 font-medium">Status</th>
               <th className="py-3 pr-4 text-right font-medium">Cost</th>
               <th className="py-3 pr-4 text-right font-medium">Listed</th>
@@ -260,12 +289,20 @@ function TableView({ rows }: { rows: Row[] }) {
                     </div>
                   )}
                 </td>
-                <td className="py-3 pr-4 text-[var(--text-secondary)]">
-                  {r.brand ?? "—"}
-                </td>
-                <td className="py-3 pr-4 text-[var(--text-secondary)]">
-                  {r.size ?? "—"}
-                </td>
+                {showMissing ? (
+                  <td className="py-3 pr-4">
+                    <MissingChips itemId={r.id} missing={r.missing ?? []} />
+                  </td>
+                ) : (
+                  <>
+                    <td className="py-3 pr-4 text-[var(--text-secondary)]">
+                      {r.brand ?? "—"}
+                    </td>
+                    <td className="py-3 pr-4 text-[var(--text-secondary)]">
+                      {r.size ?? "—"}
+                    </td>
+                  </>
+                )}
                 <td className="py-3 pr-4">
                   <StatusPill status={r.status} />
                 </td>
@@ -349,6 +386,38 @@ function GridView({ rows }: { rows: Row[] }) {
               </div>
             </div>
           </Card>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MissingChips({
+  itemId,
+  missing,
+}: {
+  itemId: string;
+  missing: FieldStatus[];
+}) {
+  if (missing.length === 0) {
+    return (
+      <span className="inline-flex items-center rounded-[var(--radius-sm)] bg-[var(--accent-emerald-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-emerald-soft-fg)]">
+        Complete
+      </span>
+    );
+  }
+  return (
+    <ul className="flex flex-wrap gap-1">
+      {missing.map((m) => (
+        <li key={m.field}>
+          <Link
+            href={`/inventory/${itemId}?focus=${m.field}`}
+            title={`+${m.weight} pts · ${m.hint}`}
+            className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] bg-[var(--accent-amber-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--accent-amber)]/30"
+          >
+            <span className="tabular-nums opacity-80">+{m.weight}</span>
+            <span>{m.label}</span>
+          </Link>
         </li>
       ))}
     </ul>

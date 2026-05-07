@@ -203,7 +203,7 @@ export default async function ProfitPage({
         title="Profit"
         subtitle={formatRangeSubtitle(range.from, range.to)}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <SegmentedControl
               options={TYPE_OPTIONS}
               active={p.type}

@@ -217,7 +217,7 @@ export default async function HealthPage() {
                   );
                 })}
               </div>
-              <ul className="mt-4 grid grid-cols-5 gap-2">
+              <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {BUCKETS.map((b) => {
                   const count = h.aging.buckets[b.key];
                   return (

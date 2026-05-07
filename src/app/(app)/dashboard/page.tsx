@@ -100,7 +100,7 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Tile
           label="Revenue this month"
           value={gbp(month.summary.revenue)}
@@ -162,7 +162,8 @@ export default async function DashboardPage() {
                 .
               </p>
             ) : (
-              <table className="w-full border-collapse text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] border-collapse text-sm">
                 <thead>
                   <tr className="border-y border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
                     <th className="py-2 pl-5 pr-3 font-medium">Item</th>
@@ -217,6 +218,7 @@ export default async function DashboardPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </Card>
         </div>

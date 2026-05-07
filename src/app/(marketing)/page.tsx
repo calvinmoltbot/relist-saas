@@ -58,7 +58,7 @@ export default async function MarketingPage() {
         </div>
 
         {/* Animated dashboard preview */}
-        <div className="relative">
+        <div className="relative w-full max-w-full overflow-hidden">
           <div className="absolute -inset-6 -z-10 rounded-[28px] bg-[var(--surface-muted)]/60 blur-2xl" />
           <AnimatedDashboard />
         </div>

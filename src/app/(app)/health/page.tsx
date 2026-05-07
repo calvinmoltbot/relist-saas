@@ -99,8 +99,8 @@ export default async function HealthPage() {
   const isFirstRun = itemCount === 0;
   const totalAging = Object.values(h.aging.buckets).reduce((a, b) => a + b, 0);
 
-  // Enrich biggestImpact rows with item names (one round-trip).
-  const impactIds = h.completeness.biggestImpact.map((b) => b.itemId);
+  // Enrich topGaps rows with item names (one round-trip).
+  const impactIds = h.completeness.topGaps.map((g) => g.itemId);
   const nameMap = await scope.getItemNamesByIds(impactIds);
 
   const paceTone = PACE_TONE[h.cadence.paceBand];
@@ -300,39 +300,48 @@ export default async function HealthPage() {
             title="Biggest completeness wins"
             description="Fix one field to bump these the most."
           />
-          {h.completeness.biggestImpact.length === 0 ? (
+          {h.completeness.topGaps.length === 0 ? (
             <p className="mt-6 text-sm text-[var(--accent-emerald-soft-fg)]">
               Everything is complete.
             </p>
           ) : (
             <ul className="mt-3 divide-y divide-[var(--border-subtle)]">
-              {h.completeness.biggestImpact.slice(0, 5).map((b) => {
-                const band = scoreBand(b.score);
-                const name = nameMap.get(b.itemId) ?? b.itemId;
+              {h.completeness.topGaps.slice(0, 5).map((g) => {
+                const band = scoreBand(g.score);
+                const name = nameMap.get(g.itemId) ?? g.itemId;
                 return (
-                  <li key={b.itemId} className="py-2.5">
-                    <Link
-                      href={`/inventory/${b.itemId}`}
-                      className="group flex items-center justify-between gap-3"
-                    >
+                  <li key={g.itemId} className="py-2.5">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[var(--text-primary)] group-hover:underline">
+                        <Link
+                          href={`/inventory/${g.itemId}`}
+                          className="block truncate text-sm font-medium text-[var(--text-primary)] hover:underline"
+                        >
                           {name}
-                        </p>
-                        <p className="mt-0.5 text-xs">
-                          <span className="rounded-[var(--radius-sm)] bg-[var(--accent-amber-soft)] px-1.5 py-0.5 font-medium text-[var(--accent-amber-soft-fg)]">
-                            +{b.missingWeight} {b.missingLabel}
-                          </span>
-                        </p>
+                        </Link>
+                        <ul className="mt-1 flex flex-wrap gap-1">
+                          {g.missing.map((m) => (
+                            <li key={m.field}>
+                              <Link
+                                href={`/inventory/${g.itemId}?focus=${m.field}`}
+                                title={`+${m.weight} pts · ${m.hint}`}
+                                className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] bg-[var(--accent-amber-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--accent-amber)]/30"
+                              >
+                                <span className="tabular-nums opacity-80">+{m.weight}</span>
+                                <span>{m.label}</span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <ScoreBadge score={b.score} band={band} />
-                    </Link>
+                      <ScoreBadge score={g.score} band={band} />
+                    </div>
                   </li>
                 );
               })}
             </ul>
           )}
-          {h.completeness.biggestImpact.length > 0 && (
+          {h.completeness.topGaps.length > 0 && (
             <Link
               href="/inventory?incomplete=1"
               className="mt-3 block text-center text-xs font-medium text-[var(--brand)] hover:underline"

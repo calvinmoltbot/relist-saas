@@ -174,6 +174,7 @@ export function userScope(userId: string) {
         sourceType: items.sourceType,
         sourceLocation: items.sourceLocation,
         vintedUrl: items.vintedUrl,
+        photoCount: sql<number>`COALESCE(array_length(${items.photoUrls}, 1), 0)`.as("photo_count"),
         listedAt: items.listedAt,
         soldAt: items.soldAt,
         buyerPaidShipping: items.buyerPaidShipping,
@@ -185,17 +186,28 @@ export function userScope(userId: string) {
         isSample: items.isSample,
       };
 
-      // incompleteOnly is a post-filter (multi-column NULL/empty-string check)
-      // — when set we skip SQL pagination and let the page render the slice.
+      // incompleteOnly post-filters using the same scoring rules as the Health
+      // page — i.e. any of the seven completeness fields below target. Skips
+      // SQL pagination and lets the page render the slice.
       if (incompleteOnly) {
+        const { scoreItem } = await import("@/lib/inventory/completeness");
         const all = await db
           .select(cols)
           .from(items)
           .where(and(...conds))
           .orderBy(orderBy);
-        const filtered = all.filter(
-          (r) => !r.brand || !r.category || !r.size || !r.condition || !r.listedPrice,
-        );
+        const filtered = all.filter((r) => {
+          const { score } = scoreItem({
+            name: r.name,
+            brand: r.brand,
+            category: r.category,
+            size: r.size,
+            description: r.description,
+            photoCount: Number(r.photoCount ?? 0),
+            vintedUrl: r.vintedUrl,
+          });
+          return score < 100;
+        });
         return {
           rows: filtered,
           total: filtered.length,

@@ -240,8 +240,8 @@ function TableView({
 }) {
   return (
     <Card padded={false} className="overflow-visible">
-      <div>
-        <table className="w-full border-collapse text-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)]/40 text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
               <th className="w-16 py-3 pl-4 pr-2 font-medium">Thumbnail</th>

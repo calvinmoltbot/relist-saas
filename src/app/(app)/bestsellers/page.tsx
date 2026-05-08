@@ -139,7 +139,7 @@ export default async function BestsellersPage({
         title="Best sellers"
         subtitle="What's flying out the door — time-to-sell grouped by product attributes."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <SegmentedControl
               options={TYPE_OPTIONS}
               active={typeFilter}
@@ -148,7 +148,7 @@ export default async function BestsellersPage({
                 buildHref({ preset, dim: dimension, sort: sortKey, type: v })
               }
             />
-          <PresetSelect options={PRESETS} value={preset} />
+            <PresetSelect options={PRESETS} value={preset} />
           </div>
         }
       />

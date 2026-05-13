@@ -1,58 +1,66 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------
-   Relist design tokens — see src/components/ui/README.md
+   Relist · Aurora design tokens — dark, glass, gradient-accented.
+   See src/components/ui/README.md for primitive documentation.
    --------------------------------------------------------------- */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Surfaces */
-  --surface-canvas: #faf7f2;       /* warm cream — page background */
-  --surface-card: #ffffff;         /* card / tile surface */
-  --surface-muted: #f5f2ec;        /* tinted muted surface */
-  --surface-inset: #f1ede5;        /* inputs, sub-cards */
+  /* Surfaces — dark base, glass-friendly */
+  --surface-canvas: #07080b;       /* app/page background */
+  --surface-card: #0d0f14;         /* solid card / tile surface */
+  --surface-muted: #0b0d12;        /* secondary surface */
+  --surface-inset: #101319;        /* inputs, sub-cards */
+  --surface-glass: rgba(255, 255, 255, 0.04); /* over-canvas glass */
+  --surface-glass-2: rgba(255, 255, 255, 0.07); /* raised glass */
 
   /* Foreground */
-  --text-primary: #111827;         /* slate-900 */
-  --text-secondary: #4b5563;       /* slate-600 */
-  --text-muted: #6b7280;           /* slate-500 */
-  --text-inverse: #ffffff;
+  --text-primary: #f4f5f8;
+  --text-secondary: #a1a8b8;
+  --text-muted: #6b7384;
+  --text-faint: #4b5263;
+  --text-inverse: #0a0a0a;          /* on gradient/light buttons */
 
-  /* Borders */
-  --border-subtle: #e7e2d8;
-  --border-default: #d6cfc1;
-  --border-strong: #b8af9a;
+  /* Borders — translucent so they sit nicely on any surface */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.20);
 
-  /* Brand / accents */
-  --brand: #0f766e;                /* teal 700 — primary */
-  --brand-hover: #115e59;
-  --brand-soft: #ccfbf1;
-  --brand-soft-fg: #134e4a;
+  /* Brand — teal → indigo gradient is the signature accent */
+  --brand: #5eead4;
+  --brand-hover: #7ff3df;
+  --brand-2: #818cf8;
+  --brand-gradient: linear-gradient(135deg, #5eead4 0%, #818cf8 100%);
+  --brand-glow: 0 6px 20px rgba(94, 234, 212, 0.25);
+  --brand-soft: rgba(94, 234, 212, 0.16);
+  --brand-soft-fg: #5eead4;
 
-  --accent-amber: #f59e0b;
-  --accent-amber-soft: #fef3c7;
-  --accent-amber-soft-fg: #78350f;
+  /* Accents — saturated for dark, soft variants are translucent tints */
+  --accent-amber: #fbbf24;
+  --accent-amber-soft: rgba(251, 191, 36, 0.16);
+  --accent-amber-soft-fg: #fbbf24;
 
-  --accent-violet: #7c3aed;
-  --accent-violet-soft: #ede9fe;
-  --accent-violet-soft-fg: #4c1d95;
+  --accent-violet: #a78bfa;
+  --accent-violet-soft: rgba(167, 139, 250, 0.16);
+  --accent-violet-soft-fg: #a78bfa;
 
-  --accent-rose: #f43f5e;
-  --accent-rose-soft: #ffe4e6;
-  --accent-rose-soft-fg: #9f1239;
+  --accent-rose: #fb7185;
+  --accent-rose-soft: rgba(251, 113, 133, 0.14);
+  --accent-rose-soft-fg: #fb7185;
 
-  --accent-emerald: #059669;
-  --accent-emerald-soft: #d1fae5;
-  --accent-emerald-soft-fg: #064e3b;
+  --accent-emerald: #34d399;
+  --accent-emerald-soft: rgba(52, 211, 153, 0.14);
+  --accent-emerald-soft-fg: #34d399;
 
-  --accent-blue: #2563eb;
-  --accent-blue-soft: #dbeafe;
-  --accent-blue-soft-fg: #1e3a8a;
+  --accent-blue: #60a5fa;
+  --accent-blue-soft: rgba(96, 165, 250, 0.14);
+  --accent-blue-soft-fg: #60a5fa;
 
-  --accent-slate: #475569;
-  --accent-slate-soft: #e2e8f0;
-  --accent-slate-soft-fg: #1e293b;
+  --accent-slate: #94a3b8;
+  --accent-slate-soft: rgba(148, 163, 184, 0.12);
+  --accent-slate-soft-fg: #cbd5e1;
 
   /* Money semantic */
   --money-positive: var(--accent-emerald);
@@ -60,14 +68,14 @@
 
   /* Radii */
   --radius-sm: 6px;
-  --radius-md: 10px;
+  --radius-md: 9px;
   --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-xl: 18px;
 
-  /* Elevation */
-  --elev-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
-  --elev-2: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --elev-3: 0 12px 32px rgba(15, 23, 42, 0.10), 0 4px 8px rgba(15, 23, 42, 0.04);
+  /* Elevation — soft, dark-friendly drop shadows */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --elev-2: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --elev-3: 0 30px 60px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 @theme inline {
@@ -117,8 +125,9 @@
   --color-money-positive: var(--money-positive);
   --color-money-negative: var(--money-negative);
 
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-geist-sans);
 }
 
 @layer base {
@@ -132,27 +141,86 @@
   }
 
   body {
-    font-family: var(--font-inter), system-ui, sans-serif;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.005em;
   }
 
   input, select, textarea {
-    background: var(--surface-card);
+    background: var(--surface-inset);
     color: var(--text-primary);
     border-color: var(--border-default);
   }
 
+  input::placeholder, textarea::placeholder { color: var(--text-faint); }
+
   input:focus, select:focus, textarea:focus {
-    outline: 2px solid var(--brand);
-    outline-offset: 1px;
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18);
   }
 
   button {
     cursor: pointer;
   }
 
+  /* Display class — was Fraunces serif; now Geist with display weight + tight tracking. */
   .font-display {
-    font-family: var(--font-fraunces), Georgia, serif;
-    font-optical-sizing: auto;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
   }
+
+  /* tabular numerics by default for headline numbers */
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+}
+
+/* ---------------------------------------------------------------
+   Utilities — Aurora-specific reusable bits
+   --------------------------------------------------------------- */
+
+@layer utilities {
+  /* Brand gradient applied as a background */
+  .bg-brand-gradient {
+    background-image: var(--brand-gradient);
+  }
+
+  /* Brand gradient text-clipped */
+  .text-brand-gradient {
+    background-image: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Soft glow under brand surfaces */
+  .shadow-brand-glow {
+    box-shadow: var(--brand-glow);
+  }
+
+  /* Glass surface (over the canvas/ambient gradients) */
+  .surface-glass {
+    background: var(--surface-glass);
+    border: 1px solid var(--border-subtle);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Ambient aurora — apply to a positioned ::before on full-screen surfaces */
+  .aurora-ambient {
+    position: relative;
+  }
+  .aurora-ambient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 700px 380px at 10% -8%, rgba(94, 234, 212, 0.16), transparent 55%),
+      radial-gradient(ellipse 600px 380px at 100% 5%, rgba(167, 139, 250, 0.14), transparent 55%),
+      radial-gradient(ellipse 900px 500px at 60% 110%, rgba(129, 140, 248, 0.07), transparent 60%);
+  }
+  .aurora-ambient > * { position: relative; z-index: 1; }
 }

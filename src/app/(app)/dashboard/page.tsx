@@ -7,6 +7,7 @@ import { computeDashboardSparks } from "@/lib/analytics/dashboard-sparks";
 import { userScope } from "@/lib/db/scoped";
 import { hasSampleData } from "@/lib/sample-data";
 import { FirstRunNudge } from "@/components/FirstRunNudge";
+import { WelcomeToast } from "@/components/WelcomeToast";
 import {
   ButtonLink,
   Card,
@@ -73,6 +74,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <WelcomeToast />
       <PageHeader
         title="Dashboard"
         subtitle={now.toLocaleString("en-GB", { month: "long", year: "numeric" })}

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { HelpDot } from "@/components/help/HelpDot";
+import type { GlossaryTerm } from "@/components/help/glossary";
 
 type AcquisitionType = "bought" | "own";
 
@@ -72,8 +74,9 @@ export function NewItemForm() {
   return (
     <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
       <div className="md:col-span-2">
-        <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        <span className="flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Where did this come from?
+          <HelpDot term="bought-vs-own" placement="bottom" />
         </span>
         <div
           role="radiogroup"
@@ -155,7 +158,7 @@ export function NewItemForm() {
         </select>
       </Field>
       {acquisitionType === "bought" && (
-        <Field label="Cost price (£)">
+        <Field label="Cost price (£)" help="cost-price">
           <input
             type="number"
             step="0.01"
@@ -174,7 +177,7 @@ export function NewItemForm() {
           className={INPUT_CLASS}
         />
       </Field>
-      <Field label="Status">
+      <Field label="Status" help="status">
         <select
           value={form.status}
           onChange={(e) =>
@@ -189,7 +192,7 @@ export function NewItemForm() {
           ))}
         </select>
       </Field>
-      <Field label="Vinted URL" full>
+      <Field label="Vinted URL" full help="vinted-url">
         <input
           type="url"
           value={form.vintedUrl}
@@ -228,15 +231,18 @@ function Field({
   label,
   children,
   full,
+  help,
 }: {
   label: string;
   children: React.ReactNode;
   full?: boolean;
+  help?: GlossaryTerm;
 }) {
   return (
     <label className={`flex flex-col gap-1.5 text-sm ${full ? "md:col-span-2" : ""}`}>
-      <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
+      <span className="flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
         {label}
+        {help && <HelpDot term={help} />}
       </span>
       {children}
     </label>

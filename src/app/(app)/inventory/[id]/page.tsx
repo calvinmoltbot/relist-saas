@@ -8,6 +8,7 @@ import { ItemActions } from "./actions";
 import { ItemPhotos } from "./photos";
 import { AcquisitionChip } from "./AcquisitionChip";
 import { EditDetails } from "./edit-details";
+import { HelpDot } from "@/components/help/HelpDot";
 
 function gbp(n: string | null) {
   return n == null ? "—" : `£${parseFloat(n).toFixed(2)}`;
@@ -70,8 +71,9 @@ export default async function ItemDetail({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <StatusPill status={item.status} size="md" />
+            <StatusPill status={item.status} size="md" showHelp />
             <AcquisitionChip id={item.id} initial={item.acquisitionType} />
+            <HelpDot term="bought-vs-own" />
           </div>
         </div>
       </header>

@@ -8,12 +8,16 @@ type AcquisitionType = "bought" | "own";
 const INPUT_CLASS =
   "w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-glass)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-soft)]";
 
-export function NewItemForm() {
+export function NewItemForm({
+  defaultAcquisitionType = "bought",
+}: {
+  defaultAcquisitionType?: AcquisitionType;
+} = {}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acquisitionType, setAcquisitionType] =
-    useState<AcquisitionType>("bought");
+    useState<AcquisitionType>(defaultAcquisitionType);
   const [form, setForm] = useState({
     name: "",
     brand: "",

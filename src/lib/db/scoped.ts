@@ -249,6 +249,19 @@ export function userScope(userId: string) {
       return Number(row?.n ?? 0);
     },
 
+    countSoldItems: async () => {
+      const [row] = await db
+        .select({ n: count() })
+        .from(items)
+        .where(
+          and(
+            eq(items.userId, userId),
+            or(eq(items.status, "sold"), eq(items.status, "shipped")),
+          ),
+        );
+      return Number(row?.n ?? 0);
+    },
+
     getItem: async (id: string) => {
       const [row] = await db
         .select()

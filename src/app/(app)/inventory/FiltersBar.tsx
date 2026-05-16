@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { HelpDot } from "@/components/help/HelpDot";
 
 type StatusOption = { value: string; label: string };
 
@@ -75,7 +76,10 @@ export function FiltersBar({
         className="min-w-[220px] flex-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
       />
       <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-        <span className="hidden sm:inline">Status</span>
+        <span className="hidden items-center gap-1 sm:inline-flex">
+          Status
+          <HelpDot term="status" />
+        </span>
         <select
           value={status}
           onChange={(e) => {

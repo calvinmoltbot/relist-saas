@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  MAX_BATCH,
+  PhotoDropzone,
+  type StagedPhoto,
+} from "@/components/PhotoDropzone";
 
 type AcquisitionType = "bought" | "own";
 
@@ -14,6 +19,8 @@ export function NewItemForm() {
   const [error, setError] = useState<string | null>(null);
   const [acquisitionType, setAcquisitionType] =
     useState<AcquisitionType>("bought");
+  const [photos, setPhotos] = useState<StagedPhoto[]>([]);
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     brand: "",
@@ -35,6 +42,7 @@ export function NewItemForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setPhotoNote(null);
     try {
       // 'own' items always have cost = 0 (cleaner than null going forward).
       const costPrice =
@@ -60,6 +68,32 @@ export function NewItemForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
+
+      // Upload any staged photos to the freshly-created item.  The photos API
+      // caps each request at MAX_BATCH (5), so we chunk if needed.  If a chunk
+      // fails we still navigate to the item — the user can finish from the
+      // detail page rather than losing the item they just created.
+      if (photos.length > 0) {
+        const itemId: string = data.item.id;
+        for (let i = 0; i < photos.length; i += MAX_BATCH) {
+          const chunk = photos.slice(i, i + MAX_BATCH);
+          const upload = await fetch(`/api/inventory/${itemId}/photos`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ photos: chunk.map((p) => p.dataUri) }),
+          });
+          if (!upload.ok) {
+            const body = await upload.json().catch(() => ({}));
+            setPhotoNote(
+              `Item saved, but photo upload failed: ${
+                body.error ?? upload.statusText
+              }. You can add them on the item page.`,
+            );
+            break;
+          }
+        }
+      }
+
       router.push(`/inventory/${data.item.id}`);
       router.refresh();
     } catch (err) {
@@ -70,7 +104,7 @@ export function NewItemForm() {
   }
 
   return (
-    <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <form onSubmit={submit} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
       <div className="md:col-span-2">
         <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Where did this come from?
@@ -201,10 +235,24 @@ export function NewItemForm() {
         <textarea
           value={form.description}
           onChange={(e) => set("description", e.target.value)}
-          rows={3}
+          rows={2}
           className={INPUT_CLASS}
         />
       </Field>
+
+      <div className="md:col-span-2">
+        <PhotoDropzone
+          photos={photos}
+          onChange={setPhotos}
+          disabled={busy}
+        />
+      </div>
+
+      {photoNote && (
+        <div className="md:col-span-2 rounded-[var(--radius-md)] border border-[var(--accent-rose-soft)] bg-[var(--accent-rose-soft)] px-3 py-2 text-sm text-[var(--accent-rose-soft-fg)]">
+          {photoNote}
+        </div>
+      )}
 
       {error && (
         <div className="md:col-span-2 rounded-[var(--radius-md)] border border-[var(--accent-rose-soft)] bg-[var(--accent-rose-soft)] px-3 py-2 text-sm text-[var(--accent-rose-soft-fg)]">

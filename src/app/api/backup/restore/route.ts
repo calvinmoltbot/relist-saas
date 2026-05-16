@@ -15,6 +15,18 @@ const TABLE_KEYS = [
 ] as const;
 type TableKey = (typeof TABLE_KEYS)[number];
 
+// Safety caps. A restore wipes the caller's data — if a malformed or oversized
+// upload made it through, the user would be left with empty tables. Reject
+// before we touch anything.
+const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_ROWS_PER_TABLE: Record<TableKey, number> = {
+  items: 50_000,
+  transactions: 200_000,
+  expenses: 50_000,
+  priceData: 200_000,
+  priceStats: 50_000,
+};
+
 interface BackupFile {
   version: number;
   exportedAt?: string;
@@ -46,6 +58,14 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 
+  const contentLength = Number(req.headers.get("content-length") ?? "0");
+  if (contentLength && contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { error: `Backup file too large (max ${MAX_BODY_BYTES / 1024 / 1024} MB).` },
+      { status: 413 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -69,13 +89,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Validate every row shape BEFORE we touch the user's data. A restore is
+  // destructive — failing mid-flight with the deletes done and inserts not
+  // would leave the family-member account empty.
   for (const key of TABLE_KEYS) {
     const rows = body.data[key];
-    if (rows !== undefined && !Array.isArray(rows)) {
+    if (rows === undefined) continue;
+    if (!Array.isArray(rows)) {
       return NextResponse.json(
         { error: `data.${key} must be an array if present` },
         { status: 400 },
       );
+    }
+    if (rows.length > MAX_ROWS_PER_TABLE[key]) {
+      return NextResponse.json(
+        {
+          error: `data.${key} has ${rows.length} rows (cap ${MAX_ROWS_PER_TABLE[key]}). Refusing to restore.`,
+        },
+        { status: 413 },
+      );
+    }
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || typeof row !== "object" || Array.isArray(row)) {
+        return NextResponse.json(
+          { error: `data.${key}[${i}] is not an object` },
+          { status: 400 },
+        );
+      }
     }
   }
 

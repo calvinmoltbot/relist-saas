@@ -1,9 +1,10 @@
 import { SubNav } from "@/components/nav/SubNav";
 
 const ITEMS = [
+  { href: "/settings/profile", label: "Profile" },
+  { href: "/settings/targets", label: "Targets" },
   { href: "/settings/api-keys", label: "API keys" },
   { href: "/settings/backup", label: "Backup" },
-  { href: "/settings/targets", label: "Targets" },
 ];
 
 export default function SettingsLayout({

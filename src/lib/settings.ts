@@ -20,9 +20,60 @@ const KEYS = {
   staleListingDays: "stale_listing_days",
   refreshSuggestedDays: "refresh_suggested_days",
   weeklyListingsTarget: "weekly_listings_target",
+  displayCurrency: "display_currency",
+  defaultAcquisitionType: "default_acquisition_type",
 } as const;
 
-type SettingKey = keyof typeof KEYS;
+export const PROFILE_DEFAULTS = {
+  displayCurrency: "GBP",
+  defaultAcquisitionType: "bought" as "bought" | "own",
+};
+
+export type ProfilePrefs = {
+  displayCurrency: string;
+  defaultAcquisitionType: "bought" | "own";
+};
+
+const CURRENCY_ALLOW = new Set(["GBP", "EUR", "USD"]);
+
+export async function getProfilePrefs(userId: string): Promise<ProfilePrefs> {
+  const settings = await getSettings(userId);
+  const currency = settings[KEYS.displayCurrency];
+  const acq = settings[KEYS.defaultAcquisitionType];
+  return {
+    displayCurrency:
+      currency && CURRENCY_ALLOW.has(currency)
+        ? currency
+        : PROFILE_DEFAULTS.displayCurrency,
+    defaultAcquisitionType:
+      acq === "own" || acq === "bought"
+        ? acq
+        : PROFILE_DEFAULTS.defaultAcquisitionType,
+  };
+}
+
+export async function setProfilePrefs(
+  userId: string,
+  prefs: Partial<ProfilePrefs>,
+): Promise<void> {
+  const scope = userScope(userId);
+  const updates: Array<Promise<unknown>> = [];
+  if (prefs.displayCurrency && CURRENCY_ALLOW.has(prefs.displayCurrency)) {
+    updates.push(scope.setUserSetting(KEYS.displayCurrency, prefs.displayCurrency));
+  }
+  if (
+    prefs.defaultAcquisitionType === "bought" ||
+    prefs.defaultAcquisitionType === "own"
+  ) {
+    updates.push(
+      scope.setUserSetting(
+        KEYS.defaultAcquisitionType,
+        prefs.defaultAcquisitionType,
+      ),
+    );
+  }
+  await Promise.all(updates);
+}
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   if (value == null) return fallback;
@@ -62,7 +113,12 @@ export async function setTargets(
 ): Promise<void> {
   const scope = userScope(userId);
   const updates: Array<Promise<unknown>> = [];
-  for (const k of Object.keys(targets) as SettingKey[]) {
+  const targetKeys: Array<keyof Targets> = [
+    "staleListingDays",
+    "refreshSuggestedDays",
+    "weeklyListingsTarget",
+  ];
+  for (const k of targetKeys) {
     const v = targets[k];
     if (v == null) continue;
     if (!Number.isFinite(v) || v <= 0) continue;

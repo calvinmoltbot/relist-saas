@@ -28,7 +28,7 @@ const ak = await sql`
 console.table(ak);
 
 console.log("\n=== Isolation check: any row with NULL user_id? ===");
-for (const t of ["price_data", "items", "transactions", "expenses", "api_keys", "user_settings"]) {
+for (const t of ["price_data", "price_stats", "items", "transactions", "expenses", "api_keys", "user_settings"]) {
   const r = await sql.query(`SELECT count(*)::int AS n FROM "${t}" WHERE user_id IS NULL`);
   console.log(`  ${t}: ${r[0].n} null-user rows`);
 }

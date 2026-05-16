@@ -16,27 +16,29 @@ export function FirstRunNudge({
 }) {
   const wrap =
     variant === "banner"
-      ? "rounded-md border border-blue-200 bg-blue-50 p-5"
-      : "rounded-md border border-dashed bg-gray-50 p-10 text-center";
+      ? "rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-[var(--elev-1)] p-5"
+      : "rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-[var(--elev-1)] p-10 text-center";
 
   return (
     <section className={wrap}>
-      <p className="text-base font-medium">{heading}</p>
-      <p className="mt-1 text-sm text-gray-700">{body}</p>
+      <p className="font-display text-lg font-semibold text-[var(--text-primary)]">
+        {heading}
+      </p>
+      <p className="mt-1 text-sm text-[var(--text-secondary)]">{body}</p>
       <div
-        className={`mt-3 flex flex-wrap gap-2 text-sm ${
+        className={`mt-4 flex flex-wrap gap-2 text-sm ${
           variant === "panel" ? "justify-center" : ""
         }`}
       >
         <Link
           href="/inventory/new"
-          className="rounded-md bg-black px-3 py-1.5 text-white"
+          className="bg-brand-gradient inline-flex items-center rounded-[var(--radius-md)] px-3.5 py-1.5 text-[13px] font-semibold text-[var(--text-inverse)] shadow-brand-glow hover:brightness-110"
         >
           Add your first item
         </Link>
         <Link
           href="/settings/api-keys"
-          className="rounded-md border px-3 py-1.5"
+          className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-glass)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
           Set up the extension
         </Link>
@@ -44,9 +46,9 @@ export function FirstRunNudge({
           <form action={loadSampleDataAction}>
             <button
               type="submit"
-              className="rounded-md border px-3 py-1.5"
+              className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-glass)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             >
-              Load sample data
+              Show me a tour with fake data
             </button>
           </form>
         )}

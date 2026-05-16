@@ -100,6 +100,10 @@ export default async function DashboardPage() {
         </section>
       )}
 
+      {isFirstRun ? (
+        <FirstRunNudge variant="panel" />
+      ) : (
+        <>
       <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Tile
           label="Revenue this month"
@@ -224,21 +228,19 @@ export default async function DashboardPage() {
         </div>
 
         <div>
-          {isFirstRun ? (
-            <FirstRunNudge variant="panel" />
-          ) : (
-            <Card>
-              <CardHeader title="Quick actions" description="The fast path to common tasks." />
-              <ul className="mt-4 space-y-2 text-sm">
-                <ActionRow href="/inventory/new" label="Add a new item" />
-                <ActionRow href="/plan" label="See today's plan" />
-                <ActionRow href="/inventory?status=listed" label="Browse listed items" />
-                <ActionRow href="/expenses" label="Log an expense" />
-              </ul>
-            </Card>
-          )}
+          <Card>
+            <CardHeader title="Quick actions" description="The fast path to common tasks." />
+            <ul className="mt-4 space-y-2 text-sm">
+              <ActionRow href="/inventory/new" label="Add a new item" />
+              <ActionRow href="/plan" label="See today's plan" />
+              <ActionRow href="/inventory?status=listed" label="Browse listed items" />
+              <ActionRow href="/expenses" label="Log an expense" />
+            </ul>
+          </Card>
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

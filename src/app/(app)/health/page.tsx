@@ -123,13 +123,14 @@ export default async function HealthPage() {
         }
       />
 
-      {isFirstRun && (
+      {isFirstRun ? (
         <FirstRunNudge
+          variant="panel"
           heading="Nothing to score yet"
           body="Health metrics need active listings. Add an item and check back."
         />
-      )}
-
+      ) : (
+        <>
       {/* Headline tiles */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Tile
@@ -444,6 +445,8 @@ export default async function HealthPage() {
           )}
         </Card>
       </section>
+        </>
+      )}
     </div>
   );
 }

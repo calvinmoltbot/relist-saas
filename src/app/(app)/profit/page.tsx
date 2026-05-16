@@ -215,13 +215,14 @@ export default async function ProfitPage({
         }
       />
 
-      {isFirstRun && (
+      {isFirstRun ? (
         <FirstRunNudge
+          variant="panel"
           heading="No profit data yet"
           body="Add items and mark them sold to see revenue, margin and net profit broken down."
         />
-      )}
-
+      ) : (
+        <>
       {/* Tile row — single grid, 7 metrics */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <Tile
@@ -337,6 +338,8 @@ export default async function ProfitPage({
           />
         )}
       </Card>
+        </>
+      )}
     </div>
   );
 }

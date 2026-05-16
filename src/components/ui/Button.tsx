@@ -6,13 +6,13 @@ type Size = "sm" | "md";
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    "bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] border border-transparent",
+    "bg-brand-gradient text-[var(--text-inverse)] shadow-brand-glow font-semibold border-0 hover:brightness-105",
   secondary:
-    "bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)] hover:bg-[var(--surface-muted)]",
+    "bg-[var(--surface-glass-2)] text-[var(--text-primary)] border border-[var(--border-default)] hover:bg-[var(--surface-inset)] backdrop-blur-sm",
   ghost:
-    "bg-transparent text-[var(--text-primary)] border border-transparent hover:bg-[var(--surface-muted)]",
+    "bg-transparent text-[var(--text-primary)] border border-transparent hover:bg-[var(--surface-glass)]",
   destructive:
-    "bg-[var(--accent-rose)] text-white hover:opacity-90 border border-transparent",
+    "bg-[var(--accent-rose)] text-[var(--text-inverse)] hover:opacity-90 border border-transparent",
 };
 
 const SIZE: Record<Size, string> = {

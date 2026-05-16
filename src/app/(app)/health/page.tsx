@@ -91,12 +91,16 @@ export default async function HealthPage() {
   if (!userId) redirect("/");
 
   const scope = userScope(userId);
-  const [h, itemCount] = await Promise.all([
+  const [h, itemCount, soldCount] = await Promise.all([
     computeHealth(userId),
     scope.countItems(),
+    scope.countSoldItems(),
   ]);
 
   const isFirstRun = itemCount === 0;
+  // Phase 2: user has listings but zero sales — soften the "Behind / X% of pace"
+  // pill so it doesn't scold someone who's just started. (issue #74)
+  const isPreFirstSale = !isFirstRun && soldCount === 0;
   const totalAging = Object.values(h.aging.buckets).reduce((a, b) => a + b, 0);
 
   // Enrich topGaps rows with item names (one round-trip).
@@ -157,8 +161,12 @@ export default async function HealthPage() {
         <Tile
           label="This week's listings"
           value={`${h.cadence.currentCount} / ${h.cadence.target}`}
-          sub={`${PACE_LABEL[h.cadence.paceBand]} · ${Math.round(h.cadence.pace * 100)}% of pace`}
-          tone={paceTone}
+          sub={
+            isPreFirstSale
+              ? "Your listings look healthy — sales will appear once you mark one sold."
+              : `${PACE_LABEL[h.cadence.paceBand]} · ${Math.round(h.cadence.pace * 100)}% of pace`
+          }
+          tone={isPreFirstSale ? "emerald" : paceTone}
           icon={<BoltIcon />}
         />
       </section>

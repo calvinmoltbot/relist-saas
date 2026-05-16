@@ -149,6 +149,10 @@ export default async function ProfitPage({
 
   const isFirstRun = itemCount === 0;
   const s = r.summary;
+  // Phase 2 of onboarding: user has listed items but hasn't logged any sale yet.
+  // Showing £0.00 tiles + 0% margin reads as punitive — swap for an encouraging
+  // panel until the first sale lands. (issue #74)
+  const isPreFirstSale = !isFirstRun && s.itemsSold === 0;
 
   // ----- Items tab: filter, sort, paginate in-memory -----
   const qLower = p.q.toLowerCase();
@@ -221,6 +225,35 @@ export default async function ProfitPage({
           heading="No profit data yet"
           body="Add items and mark them sold to see revenue, margin and net profit broken down."
         />
+      ) : isPreFirstSale ? (
+        <section className="relative overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-8 py-12 text-center shadow-[var(--elev-1)] md:px-12 md:py-16">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-0 opacity-60"
+            style={{
+              background:
+                "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(94, 234, 212, 0.10), transparent 60%)",
+            }}
+          />
+          <div className="relative">
+            <p className="font-display text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">
+              No sales yet — but {itemCount}{" "}
+              {itemCount === 1 ? "item is" : "items are"} listed
+            </p>
+            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-[var(--text-secondary)]">
+              Mark one sold to see revenue, margins and your best performers
+              broken down here.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
+              <Link
+                href="/inventory"
+                className="bg-brand-gradient inline-flex items-center rounded-[var(--radius-md)] px-4 py-2 text-[13px] font-semibold text-[var(--text-inverse)] shadow-brand-glow hover:brightness-110"
+              >
+                Go to inventory
+              </Link>
+            </div>
+          </div>
+        </section>
       ) : (
         <>
       {/* Tile row — single grid, 7 metrics */}

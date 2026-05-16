@@ -106,7 +106,7 @@ export default async function HealthPage() {
   const paceTone = PACE_TONE[h.cadence.paceBand];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Inventory health"
         subtitle="A weekly pulse on the quality, freshness and value of your live stock."

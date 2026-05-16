@@ -72,7 +72,7 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Dashboard"
         subtitle={now.toLocaleString("en-GB", { month: "long", year: "numeric" })}

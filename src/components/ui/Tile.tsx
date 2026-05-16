@@ -59,14 +59,14 @@ export function Tile({
       </div>
 
       <div className="mt-3">
-        <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+        <div className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
           {label}
         </div>
-        <div className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)] md:text-3xl">
+        <div className="mt-1.5 text-[26px] font-semibold tracking-tight tabular-nums text-[var(--text-primary)] md:text-[30px]">
           {value}
         </div>
         {sub && (
-          <div className="mt-1 text-xs text-[var(--text-muted)]">{sub}</div>
+          <div className="mt-1 text-[13px] text-[var(--text-secondary)]">{sub}</div>
         )}
       </div>
 

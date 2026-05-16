@@ -14,7 +14,7 @@ export function PageHeader({ title, subtitle, actions }: Props) {
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{subtitle}</p>
+          <p className="mt-1.5 text-[15px] text-[var(--text-secondary)]">{subtitle}</p>
         )}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

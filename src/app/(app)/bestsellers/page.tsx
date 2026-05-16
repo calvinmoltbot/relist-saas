@@ -134,7 +134,7 @@ export default async function BestsellersPage({
   const hasEnough = data.overall.totalSold >= data.minGroupSize;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Best sellers"
         subtitle="What's flying out the door — time-to-sell grouped by product attributes."

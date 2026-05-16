@@ -30,9 +30,9 @@ export function CardHeader({
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
+        <h3 className="text-[17px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</h3>
         {description && (
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
+          <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{description}</p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}

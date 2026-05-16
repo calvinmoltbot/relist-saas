@@ -72,7 +72,7 @@ export function NewItemForm() {
   return (
     <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
       <div className="md:col-span-2">
-        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Where did this come from?
         </span>
         <div
@@ -235,7 +235,7 @@ function Field({
 }) {
   return (
     <label className={`flex flex-col gap-1.5 text-sm ${full ? "md:col-span-2" : ""}`}>
-      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+      <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
         {label}
       </span>
       {children}

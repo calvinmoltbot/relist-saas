@@ -64,7 +64,7 @@ export default async function PlanPage() {
         subtitle={today}
         actions={
           <div className="text-right">
-            <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            <div className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
               Total time
             </div>
             <div className="font-display text-xl font-semibold text-[var(--text-primary)] tabular-nums">
@@ -86,7 +86,7 @@ export default async function PlanPage() {
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {ORDER.map((t) => (
               <Card key={t} className="!p-4">
-                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                <div className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
                   {TYPE_META[t].label}
                 </div>
                 <div className="mt-1 font-display text-2xl font-semibold text-[var(--text-primary)] tabular-nums">

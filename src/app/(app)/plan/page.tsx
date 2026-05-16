@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { buildDailyPlan, type DailyTask, type TaskType } from "@/lib/analytics/daily-plan";
 import { userScope } from "@/lib/db/scoped";
 import { FirstRunNudge } from "@/components/FirstRunNudge";
+import { Card, PageHeader } from "@/components/ui";
 
 const TYPE_META: Record<
   TaskType,
@@ -11,22 +12,22 @@ const TYPE_META: Record<
 > = {
   ship: {
     label: "Ship",
-    tone: "bg-emerald-100 text-emerald-800",
+    tone: "bg-[var(--accent-emerald-soft)] text-[var(--accent-emerald-soft-fg)]",
     emptyLabel: "Nothing to ship",
   },
   update: {
     label: "Update",
-    tone: "bg-blue-100 text-blue-800",
+    tone: "bg-[var(--accent-blue-soft)] text-[var(--accent-blue-soft-fg)]",
     emptyLabel: "All details filled in",
   },
   reprice: {
     label: "Reprice",
-    tone: "bg-amber-100 text-amber-800",
+    tone: "bg-[var(--accent-amber-soft)] text-[var(--accent-amber-soft-fg)]",
     emptyLabel: "No stale listings",
   },
   photo: {
     label: "Photos",
-    tone: "bg-fuchsia-100 text-fuchsia-800",
+    tone: "bg-[var(--accent-violet-soft)] text-[var(--accent-violet-soft-fg)]",
     emptyLabel: "All listings have photos",
   },
 };
@@ -57,29 +58,21 @@ export default async function PlanPage() {
   });
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Plan my day</h1>
-          <p className="mt-1 text-sm text-gray-600">{today}</p>
-        </div>
-        <div className="text-right">
-          <div className="text-xs uppercase text-gray-500">Total time</div>
-          <div className="text-xl font-semibold">
-            {plan.totalEstimatedMinutes ? `~${plan.totalEstimatedMinutes} min` : "—"}
+    <div className="space-y-6">
+      <PageHeader
+        title="Plan my day"
+        subtitle={today}
+        actions={
+          <div className="text-right">
+            <div className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              Total time
+            </div>
+            <div className="font-display text-xl font-semibold text-[var(--text-primary)] tabular-nums">
+              {plan.totalEstimatedMinutes ? `~${plan.totalEstimatedMinutes} min` : "—"}
+            </div>
           </div>
-        </div>
-      </header>
-
-      {/* Counts */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {ORDER.map((t) => (
-          <div key={t} className="rounded-md border p-4">
-            <div className="text-xs uppercase text-gray-500">{TYPE_META[t].label}</div>
-            <div className="mt-1 text-2xl font-semibold">{plan.countsByType[t]}</div>
-          </div>
-        ))}
-      </section>
+        }
+      />
 
       {isFirstRun ? (
         <FirstRunNudge
@@ -87,59 +80,85 @@ export default async function PlanPage() {
           heading="No tasks yet"
           body="Once you add items, the daily plan will surface what to ship, photo, reprice or update first."
         />
-      ) : plan.tasks.length === 0 ? (
-        <section className="rounded-md border border-dashed bg-gray-50 p-10 text-center">
-          <p className="text-base font-medium">Inbox zero</p>
-          <p className="mt-1 text-sm text-gray-600">
-            Nothing urgent — go source some stock or take the afternoon off.
-          </p>
-        </section>
       ) : (
-        ORDER.map((type) => (
-          <section key={type}>
-            <header className="mb-2 flex items-center gap-2">
-              <span
-                className={`rounded px-1.5 py-0.5 text-xs font-medium ${TYPE_META[type].tone}`}
-              >
-                {TYPE_META[type].label}
-              </span>
-              <h2 className="text-sm font-medium text-gray-700">
-                {grouped[type].length > 0
-                  ? `${grouped[type].length} ${grouped[type].length === 1 ? "task" : "tasks"}`
-                  : TYPE_META[type].emptyLabel}
-              </h2>
-            </header>
-            {grouped[type].length === 0 ? null : (
-              <ul className="divide-y rounded-md border">
-                {grouped[type].map((task) => (
-                  <li
-                    key={task.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/inventory/${task.itemId}`}
-                        className="block truncate text-sm font-medium underline"
-                      >
-                        {task.title}
-                      </Link>
-                      <p className="truncate text-xs text-gray-600">{task.subtitle}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3 text-xs text-gray-500">
-                      <span>~{task.estimatedMinutes}m</span>
-                      <Link
-                        href={`/inventory/${task.itemId}`}
-                        className="rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-50"
-                      >
-                        {task.action}
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+        <>
+          {/* Counts */}
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {ORDER.map((t) => (
+              <Card key={t} className="!p-4">
+                <div className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                  {TYPE_META[t].label}
+                </div>
+                <div className="mt-1 font-display text-2xl font-semibold text-[var(--text-primary)] tabular-nums">
+                  {plan.countsByType[t]}
+                </div>
+              </Card>
+            ))}
           </section>
-        ))
+
+          {plan.tasks.length === 0 ? (
+            <Card className="text-center !p-10">
+              <p className="font-display text-lg font-semibold text-[var(--text-primary)]">
+                Inbox zero
+              </p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Nothing urgent — go source some stock or take the afternoon off.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {ORDER.map((type) => (
+                <section key={type}>
+                  <header className="mb-2 flex items-center gap-2">
+                    <span
+                      className={`rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-medium ${TYPE_META[type].tone}`}
+                    >
+                      {TYPE_META[type].label}
+                    </span>
+                    <h2 className="text-sm font-medium text-[var(--text-secondary)]">
+                      {grouped[type].length > 0
+                        ? `${grouped[type].length} ${grouped[type].length === 1 ? "task" : "tasks"}`
+                        : TYPE_META[type].emptyLabel}
+                    </h2>
+                  </header>
+                  {grouped[type].length === 0 ? null : (
+                    <Card padded={false}>
+                      <ul className="divide-y divide-[var(--border-subtle)]">
+                        {grouped[type].map((task) => (
+                          <li
+                            key={task.id}
+                            className="flex items-center justify-between gap-3 px-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <Link
+                                href={`/inventory/${task.itemId}`}
+                                className="block truncate text-sm font-medium text-[var(--text-primary)] hover:text-[var(--brand)]"
+                              >
+                                {task.title}
+                              </Link>
+                              <p className="truncate text-xs text-[var(--text-muted)]">
+                                {task.subtitle}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-3 text-xs text-[var(--text-muted)]">
+                              <span className="tabular-nums">~{task.estimatedMinutes}m</span>
+                              <Link
+                                href={`/inventory/${task.itemId}`}
+                                className="inline-flex items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--surface-glass)] px-2 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                              >
+                                {task.action}
+                              </Link>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

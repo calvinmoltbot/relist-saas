@@ -30,7 +30,7 @@ export default async function MarketingPage() {
             </>
           ) : (
             <div className="[&_button]:bg-brand-gradient [&_button]:text-[var(--text-inverse)] [&_button]:shadow-brand-glow [&_button]:inline-flex [&_button]:h-9 [&_button]:items-center [&_button]:justify-center [&_button]:rounded-[var(--radius-md)] [&_button]:px-4 [&_button]:text-[13px] [&_button]:font-semibold [&_button]:cursor-pointer [&_button:hover]:brightness-110">
-              <SignInButton mode="modal">
+              <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <button>Sign in</button>
               </SignInButton>
             </div>
@@ -82,7 +82,7 @@ export default async function MarketingPage() {
               </div>
             ) : (
               <div className="[&_button]:bg-brand-gradient [&_button]:text-[var(--text-inverse)] [&_button]:shadow-brand-glow [&_button]:inline-flex [&_button]:h-11 [&_button]:items-center [&_button]:justify-center [&_button]:rounded-[var(--radius-md)] [&_button]:px-6 [&_button]:text-sm [&_button]:font-semibold [&_button]:cursor-pointer [&_button:hover]:brightness-110">
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                   <button>Sign in →</button>
                 </SignInButton>
               </div>

@@ -72,7 +72,7 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Dashboard"
         subtitle={now.toLocaleString("en-GB", { month: "long", year: "numeric" })}
@@ -85,14 +85,14 @@ export default async function DashboardPage() {
       />
 
       {sampleLoaded && (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/30 bg-[var(--accent-amber-soft)] px-4 py-3 text-sm text-[var(--accent-amber-soft-fg)]">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/30 bg-[var(--accent-amber-soft)] px-3.5 py-2 text-[13px] text-[var(--accent-amber-soft-fg)]">
           <span>
             Sample data is loaded in your account. Clear it once you&apos;re ready to work with real items only.
           </span>
           <form action={clearSampleDataAction}>
             <button
               type="submit"
-              className="rounded-[var(--radius-md)] border border-[var(--accent-amber)]/40 bg-white px-3 py-1.5 text-xs font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--surface-muted)]"
+              className="rounded-[var(--radius-md)] border border-[var(--accent-amber)]/40 bg-[var(--surface-card)] px-3 py-1 text-[12px] font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--surface-muted)]"
             >
               Clear sample data
             </button>
@@ -100,6 +100,10 @@ export default async function DashboardPage() {
         </section>
       )}
 
+      {isFirstRun ? (
+        <FirstRunNudge variant="panel" />
+      ) : (
+        <>
       <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Tile
           label="Revenue this month"
@@ -224,21 +228,19 @@ export default async function DashboardPage() {
         </div>
 
         <div>
-          {isFirstRun ? (
-            <FirstRunNudge variant="panel" />
-          ) : (
-            <Card>
-              <CardHeader title="Quick actions" description="The fast path to common tasks." />
-              <ul className="mt-4 space-y-2 text-sm">
-                <ActionRow href="/inventory/new" label="Add a new item" />
-                <ActionRow href="/plan" label="See today's plan" />
-                <ActionRow href="/inventory?status=listed" label="Browse listed items" />
-                <ActionRow href="/expenses" label="Log an expense" />
-              </ul>
-            </Card>
-          )}
+          <Card>
+            <CardHeader title="Quick actions" description="The fast path to common tasks." />
+            <ul className="mt-4 space-y-2 text-sm">
+              <ActionRow href="/inventory/new" label="Add a new item" />
+              <ActionRow href="/plan" label="See today's plan" />
+              <ActionRow href="/inventory?status=listed" label="Browse listed items" />
+              <ActionRow href="/expenses" label="Log an expense" />
+            </ul>
+          </Card>
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

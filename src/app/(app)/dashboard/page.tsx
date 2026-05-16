@@ -85,14 +85,14 @@ export default async function DashboardPage() {
       />
 
       {sampleLoaded && (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/30 bg-[var(--accent-amber-soft)] px-4 py-3 text-sm text-[var(--accent-amber-soft-fg)]">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--accent-amber)]/30 bg-[var(--accent-amber-soft)] px-3.5 py-2 text-[13px] text-[var(--accent-amber-soft-fg)]">
           <span>
             Sample data is loaded in your account. Clear it once you&apos;re ready to work with real items only.
           </span>
           <form action={clearSampleDataAction}>
             <button
               type="submit"
-              className="rounded-[var(--radius-md)] border border-[var(--accent-amber)]/40 bg-white px-3 py-1.5 text-xs font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--surface-muted)]"
+              className="rounded-[var(--radius-md)] border border-[var(--accent-amber)]/40 bg-[var(--surface-card)] px-3 py-1 text-[12px] font-medium text-[var(--accent-amber-soft-fg)] hover:bg-[var(--surface-muted)]"
             >
               Clear sample data
             </button>

@@ -44,10 +44,10 @@ export function Tile({
   spark,
 }: Props) {
   return (
-    <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 shadow-[var(--elev-1)]">
+    <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-3.5 shadow-[var(--elev-1)]">
       <div className="flex items-start justify-between gap-3">
         {icon && (
-          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] ${ICON_BG[tone]}`}>
+          <span className={`inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] ${ICON_BG[tone]}`}>
             {icon}
           </span>
         )}
@@ -58,21 +58,21 @@ export function Tile({
         )}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-2.5">
         <div className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
           {label}
         </div>
-        <div className="mt-1.5 text-[26px] font-semibold tracking-tight tabular-nums text-[var(--text-primary)] md:text-[30px]">
+        <div className="mt-1 text-[24px] font-semibold tracking-tight tabular-nums text-[var(--text-primary)] md:text-[28px]">
           {value}
         </div>
         {sub && (
-          <div className="mt-1 text-[13px] text-[var(--text-secondary)]">{sub}</div>
+          <div className="mt-0.5 text-[13px] text-[var(--text-secondary)]">{sub}</div>
         )}
       </div>
 
       {spark && spark.length > 1 && (
-        <div className="mt-3">
-          <Sparkline data={spark} tone={tone} height={36} />
+        <div className="mt-2">
+          <Sparkline data={spark} tone={tone} height={28} />
         </div>
       )}
     </div>
